@@ -43,8 +43,8 @@ Community Contribution:
     <img src=".asset/teaser.jpg" width="60%"> <br>
 </p>
 
-Spatial reasoning is the ability to perceive, interpret, and act across spatial scales, from millimeter-sized components to distant aerial scenes. All-scale spatial reasoning is fundamental to next-generation intelligent systems and supports diverse applications: mm sensing for advanced manufacturing, cm and m perception for embodied agents, 10m operation for autonomous driving, and 100m for drone based sensing.
-Despite progress, existing work shows clear limitations in both model design and dataset coverage. Current scene perception research mostly targets indoor scenes, narrow object classes, and limited spatial ranges, and lacks training paradigms engineered for end to end, cross scale reasoning. SpaceVista addresses this gap by presenting the first systematic optimization across both data and model dimensions to enable robust, full scene spatial reasoning.
+Spatial reasoning is the ability to perceive, interpret, and act across spatial scales, from millimeter-sized components to distant aerial scenes. All-scale spatial reasoning is fundamental to next-generation intelligent systems and supports diverse applications: mm sensing for advanced manufacturing, cm and m perception for embodied agents, 10m operation for autonomous driving, and 100m for drone-based sensing.
+Despite progress, existing work shows clear limitations in both model design and dataset coverage. Current scene perception research mostly targets indoor scenes, narrow object classes, and limited spatial ranges, and lacks training paradigms engineered for end to end, cross scale reasoning. SpaceVista addresses this gap by presenting the first systematic optimization across both data and model dimensions to enable robust, full-scene spatial reasoning.
 
 # Requirements
 
@@ -52,7 +52,7 @@ Development for the repo is done in Python 3.10.18
 
 This code base is adapted from [LLaMA-factory](https://github.com/hiyouga/LLaMA-Factory), [R1-V](https://github.com/StarsfieldAI/R1-V), [VG-LLM](https://github.com/LaVi-Lab/VG-LLM) and [Easy-R1](https://github.com/hiyouga/EasyR1). Sincere thanks to the engineers for their great work.
 
-We use the light venv package for python enviroment. (Do not use other tools like conda at the same time)
+We use the light venv package for the Python environment. (Do not use other tools like conda at the same time)
 ```
 git clone 
 cd SpaceVista
@@ -71,9 +71,11 @@ ln -s "$(pwd)/dependency/transformers" ".venv/lib/python3.10/site-packages/trans
 
 # Dataset Usages
 
+Please refer to the [dataset part](https://github.com/PeiwenSun2000/SpaceVista/tree/main/dataset).
+
 We provide the dataset in ShareGPT format, along with up to 32 extracted frames.
 
-You may download the orginal mp4 video from the source.
+You may download the original MP4 video from the source.
 
 # Model Gallery
 
@@ -85,7 +87,7 @@ The model will be released soon after the sensitivity check.
 
 # Usage
 
-Before everything, sincere apology for some part of our code is still hard code. We are actively seeking for easy usage of this repo.
+Before everything, a sincere apology for some part of our code is still hard-coded. We are actively seeking for easy usage of this repo.
 
 
 ## SFT training:
