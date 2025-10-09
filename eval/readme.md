@@ -1,0 +1,1 @@
+The evaluation code is adapted from [SpaceR](https://github.com/OuyangKun10/SpaceR), [STI-Bench](https://github.com/MINT-SJTU/STI-Bench), [VSI-Bench](https://github.com/vision-x-nyu/thinking-in-space), [SPAR-Bench](https://github.com/fudan-zvg/SPAR), [MMSI-Bench](https://github.com/InternRobotics/MMSI-Bench).
