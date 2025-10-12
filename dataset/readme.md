@@ -2,7 +2,21 @@
 
 This is a preview of SpaceVista, containing only a subset of tasks and scenes. As you can see, the data format is **not yet unified**, and the meta JSON keys remain inconsistent. We’ve provided a reasonable preview here—please stay tuned for the full, up-to-date release.
 
-By the way, we would **not** recommend you to train your model with your own dataloader. The format of this dataset needs **refine completely**. As the final version may necessitate a complete redesign of your dataloader, we **have provided and will provide** the dataloaders for this version and future version.
+By the way, we would **not** recommend you train your model with your own dataloader. The format of this dataset needs to be **refined completely**. As the final version may necessitate a complete redesign of your dataloader, we **have provided and will provide** the dataloaders for this version and future versions.
+
+# What is **All-Scale Spatial Reasoning**
+
+<img src=".asset/teaser.jpg" width="50%">
+
+Spatial reasoning is the ability to **perceive, interpret, and act** across spatial scales, from millimeter-sized components to distant aerial scenes. All-scale spatial reasoning is fundamental to next-generation intelligent systems and supports diverse applications: mm sensing for advanced manufacturing, cm and m perception for embodied agents, 10m operation for autonomous driving, and 100m for drone based sensing.
+Despite progress, existing work shows clear limitations in both model design and dataset coverage. Current scene perception research mostly targets indoor scenes, narrow object classes, and limited spatial ranges, and lacks training paradigms engineered for end-to-end, cross-scale reasoning. SpaceVista addresses this gap by presenting the **first systematic solution** across both data and model dimensions to enable robust, full scene spatial reasoning.
+
+# Data Construction
+
+
+<img src=".asset/dataset.jpg" width="50%">
+
+The limited data and performance constraints in existing models necessitate the creation of a dataset with all-scale spatial context. We propose **SpaceVista-1M**, a **diverse, real-world, all-scale** reasoning dataset, as the **first** to the best of our knowledge. SpaceVista-1M primarily comprises diverse spatial reasoning question–answer pairs, with rich semantic (category, rationale), 2D (mask, box, point), and 3D (depth, camera parameters, point cloud) annotations, obtained either natively or through processing. The construction pipeline in the above figure follows the step-by-step procedure of preparing, transforming, and generating to obtain an all-scale dataset by integrating specialized models.
 
 # Data Usage
 
@@ -18,9 +32,9 @@ tar -xvzf datasets_bundle.tar.gz
 
 # Disk Requirement
 
-Chunks for `.tar.gz` is `202GB`
+Chunks for `.tar.gz` are `202GB` in total.
 
-After uncompressing, preview data requires `215GB`. These are frames with the original resolutions from the source datasets, which are later normalized to the same resolution during training.
+After uncompressing, the preview data requires `215GB`. These are frames with the original resolutions from the source datasets, which are later normalized to the same resolution during training.
 
 ```
 110GB — ./DL3DV_frames
@@ -53,9 +67,17 @@ Preview
 └─ meta.json
 ```
 
+# Dataloader for Preview Version
+
+See the loader of LLaMA-factory in [mm_plugin](https://github.com/PeiwenSun2000/SpaceVista/blob/main/sft/src/llamafactory/data/mm_plugin.py)
+
+# Full SpaceVista-1M
+
+Full SpaceVista-1M will be released soon. Please stay tuned.
+
 # Data Preview
 
-cd dataset
+[Jupyter Notebook](https://github.com/PeiwenSun2000/SpaceVista/blob/main/dataset/vis.ipynb) for preview.
 
 ```
 jupyter notebook
@@ -65,19 +87,25 @@ jupyter notebook
 
 ```
 
-The outputs are random selected frames with annotation and QA.
+or
 
-<img src="../.asset/case1.png" width="50%"><img src="../.asset/case4.png" width="45%">
+[Save annotation for preview.](https://github.com/PeiwenSun2000/SpaceVista/blob/main/dataset/save_visualization.py) 
 
-<img src="../.asset/case2.png" width="43%"><img src="../.asset/case3.png" width="54%">
+```
 
-# Dataloader for Preview Version
+# mind the dataset paths
 
-See the loader of LLaMA-factory in [mm_plugin](https://github.com/PeiwenSun2000/SpaceVista/blob/main/sft/src/llamafactory/data/mm_plugin.py)
+python save_visualization.py --json meta.json 
 
-# Full SpaceVista-1M
+```
 
-Full SpaceVista-1M will be released soon. Please stay tuned.
+
+The jupyter outputs are the preview of video frames with annotation and QA.
+
+<img src=".asset/case1.png" width="30%"><img src=".asset/case4.png" width="25%">
+
+<img src=".asset/case2.png" width="33%"><img src=".asset/case3.png" width="34%">
+
 
 # Reference
 
@@ -86,3 +114,4 @@ Full SpaceVista-1M will be released soon. Please stay tuned.
 {}
 
 ```
+
