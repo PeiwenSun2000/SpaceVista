@@ -1,4 +1,18 @@
 {
+    "SpaceVista": {
+    "file_name": "your_path/meta.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages",
+      "videos": "videos"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
   "SPAR": {
     "file_name": "your_path/spar_7m/spar/sft_spar7m.json",
     "formatting": "sharegpt",
