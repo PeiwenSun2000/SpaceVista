@@ -608,9 +608,9 @@ class InternVLPlugin(BasePlugin):
         messages = deepcopy(messages)
         mm_inputs = self._get_mm_inputs(images, videos, audios, processor)
 
-        image_pixel_patch_list = mm_inputs.get("image_num_patches")  # patches of images
+        image_pixel_patch_list = mm_inputs.get("image_num_patches")  # pathes of images
         video_num_patches = mm_inputs.get("video_num_patches")  # all patches for frames of videos
-        video_patch_indices = mm_inputs.get("video_patch_indices")  # num frames per video
+        video_patch_indices = mm_inputs.get("video_patch_indices")  # num frames of per video
 
         for message in messages:
             content = message["content"]
@@ -868,9 +868,9 @@ class LlavaNextVideoPlugin(BasePlugin):
             if "pixel_values_videos" in mm_inputs:
                 one_video = to_numpy_array(mm_inputs.get("pixel_values_videos")[0])
                 height, width = get_image_size(one_video[0])
-                num_frames = one_video.shape[0]
+                num_frames = one_video.shape[0]  # frame dim is always after batch dim
                 image_seqlen = (height // processor.patch_size) * (width // processor.patch_size)
-                video_seqlen = image_seqlen // 4 * num_frames
+                video_seqlen = image_seqlen // 4 * num_frames  # divide by 4 needed for avg pooling layer
         else:
             video_seqlen = 1
 
@@ -1270,7 +1270,7 @@ class PixtralPlugin(BasePlugin):
                     num_height_tokens = height // processor.patch_size
                     num_width_tokens = width // processor.patch_size
                     replace_tokens = [[self.image_token] * num_width_tokens + [image_break_token]] * num_height_tokens
-                    replace_tokens = [item for sublist in replace_tokens for item in sublist]
+                    replace_tokens = [item for sublist in replace_tokens for item in sublist]  # flatten list
                     replace_tokens[-1] = image_end_token
                     replace_str = "".join(replace_tokens)
                 else:
@@ -1358,86 +1358,29 @@ class Qwen2AudioPlugin(BasePlugin):
         self._validate_input(processor, images, videos, audios)
         return self._get_mm_inputs(images, videos, audios, processor)
     
+def overlay_mask_rgba(pil_img: Image.Image, mask: np.ndarray, color=(255, 0, 0), alpha=0.35) -> Image.Image:
+    if mask is None:
+        return pil_img
+    if mask.dtype != bool:
+        mask = mask.astype(bool)
+    if not mask.any():
+        return pil_img
+    base = pil_img.convert("RGBA")
+    color_img = Image.new("RGBA", base.size, color + (int(255 * alpha),))
+    mh, mw = mask.shape[:2]
+    if (mw, mh) != (base.width, base.height):
+        mask_pil = Image.fromarray((mask.astype(np.uint8) * 255)).resize((base.width, base.height), resample=Image.NEAREST)
+    else:
+        mask_pil = Image.fromarray(mask.astype(np.uint8) * 255)
+    out = Image.composite(color_img, base, mask_pil)
+    return out.convert("RGB")
+
+
 @dataclass
 class Qwen2VLPlugin(BasePlugin):
-    # User configurable: auto/old/new
     dataset_mode: str = "auto"
 
-    # ========== Mode detection ==========
-    def _detect_mode_from_extra(self, extra: Optional[Dict[str, Any]]) -> str:
-        """
-        Simple heuristics:
-        - If contains old-version fields: input_point/input_bbox/input_mask/point_image_path/bbox_image_path/mask_image_path etc => old
-        - If point/box format like [[x,y]] / [x1,y1,x2,y2] and values look like pixels => old
-        - If point/box looks normalized (<=1 or around ~1000 scale) => new
-        """
-        if not isinstance(extra, dict):
-            return "old"
-
-        old_keys = [
-            "input_point", "input_bbox", "input_mask",
-            "point_image_path", "bbox_image_path", "mask_image_path"
-        ]
-        if any(k in extra and extra.get(k) for k in old_keys):
-            return "old"
-
-        def _looks_like_new_point(pt):
-            try:
-                p = pt
-                if isinstance(p, list) and len(p) == 1 and isinstance(p[0], (list, tuple, np.ndarray)):
-                    p = p[0]
-                arr = np.array(p, dtype=float).reshape(-1)
-                if arr.size == 2:
-                    if (arr <= 1.0).all():
-                        return True
-                    if (arr <= 1200).all() and (arr >= 0.0).all():
-                        if (arr > 1.0).any():
-                            return True
-                return False
-            except Exception:
-                return False
-
-        def _looks_like_new_bbox(bb):
-            try:
-                b = bb
-                if isinstance(b, list) and len(b) == 1:
-                    b = b[0]
-                arr = np.array(b, dtype=float).reshape(-1)
-                if arr.size == 4:
-                    if (arr <= 1.0).all():
-                        return True
-                    if (arr <= 2000).all() and (arr >= 0.0).all() and (arr > 1.0).any():
-                        return True
-                return False
-            except Exception:
-                return False
-
-        for color in ["red", "green", "blue", "yellow"]:
-            pt = extra.get(f"{color}_point")
-            if pt is not None and _looks_like_new_point(pt):
-                return "new"
-            bb = extra.get(f"{color}_bbox")
-            if bb is not None and _looks_like_new_bbox(bb):
-                return "new"
-
-        return "old"
-
-    # ========== Common extreme aspect ratio protection ==========
-    @override
-    def _preprocess_image(self, image: "ImageObject", **kwargs) -> "ImageObject":
-        image = super()._preprocess_image(image, **kwargs)
-        if min(image.width, image.height) < 28:
-            width, height = max(image.width, 28), max(image.height, 28)
-            image = image.resize((width, height))
-        if image.width / image.height > 200:
-            width, height = int(image.height * 180), image.height
-            image = image.resize((width, height))
-        if image.height / image.width > 200:
-            width, height = image.width, int(image.width * 180)
-            image = image.resize((width, height))
-        return image
-
-    # ========== Lightweight JSON parsing ==========
+    # ========== Utilities ==========
     def _json_maybe_parse(self, value):
         if value is None:
             return None
@@ -1448,41 +1391,41 @@ class Qwen2VLPlugin(BasePlugin):
             if s == "":
                 return None
             try:
-                import json as _json
-                return _json.loads(s)
+                return json.loads(s)
             except Exception:
-                pass
-            try:
-                import json as _json
-                s2 = s.replace("True", "true").replace("False", "false")
-                return _json.loads(s2)
-            except Exception:
-                return value
+                try:
+                    s2 = s.replace("True", "true").replace("False", "false")
+                    return json.loads(s2)
+                except Exception:
+                    return value
         return value
 
-    # ========== Visualization/annotation: old logic ==========
-    def _overlay_mask_rgba(self, pil_img: Image.Image, mask: np.ndarray, color=(255, 0, 0), alpha=0.35) -> Image.Image:
-        if mask is None:
-            return pil_img
-        if mask.dtype != bool:
-            mask = mask.astype(bool)
-        if not mask.any():
-            return pil_img
+    def _safe_to_pil(self, img) -> Image.Image:
+        if isinstance(img, Image.Image):
+            return img
+        if isinstance(img, np.ndarray):
+            if img.ndim == 2:
+                return Image.fromarray(img, mode="L")
+            if img.ndim == 3:
+                if img.shape[2] == 3:
+                    return Image.fromarray(img[:, :, ::-1]) if img.flags["C_CONTIGUOUS"] else Image.fromarray(np.ascontiguousarray(img)[:, :, ::-1])
+                if img.shape[2] == 4:
+                    rgba = img[:, :, [2, 1, 0, 3]]
+                    return Image.fromarray(rgba, mode="RGBA")
+        return Image.fromarray(np.array(img))
 
-        base = pil_img.convert("RGBA")
-        color_img = Image.new("RGBA", base.size, color + (int(255 * alpha),))
-
-        mh, mw = mask.shape[:2]
-        if (mw, mh) != (base.width, base.height):
-            mask_pil = Image.fromarray((mask.astype(np.uint8) * 255)).resize((base.width, base.height), resample=Image.NEAREST)
-        else:
-            mask_pil = Image.fromarray(mask.astype(np.uint8) * 255)
-
-        out = Image.composite(color_img, base, mask_pil)
-        return out.convert("RGB")
+    def _pil_to_numpy_bgr(self, img: Image.Image) -> np.ndarray:
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGB")
+        arr = np.array(img)
+        if arr.ndim == 2:
+            arr = np.stack([arr] * 3, axis=-1)
+        if arr.shape[2] == 4:
+            arr = arr[:, :, :3]
+        return arr[:, :, ::-1].copy()
 
     def _load_mask_array(self, mask_path: str) -> Optional[np.ndarray]:
-        if not os.path.isfile(mask_path):
+        if not mask_path or not os.path.isfile(mask_path):
             return None
         try:
             return np.load(mask_path, allow_pickle=True)
@@ -1492,7 +1435,6 @@ class Qwen2VLPlugin(BasePlugin):
     def _select_mask_from_array(self, mask_arr: np.ndarray, object_ids: Union[List[bool], List[int], List[str], None]) -> Optional[np.ndarray]:
         if mask_arr is None:
             return None
-
         arr = mask_arr
         while arr.ndim > 2 and arr.shape[0] == 1:
             arr = arr[0]
@@ -1522,7 +1464,7 @@ class Qwen2VLPlugin(BasePlugin):
 
         if arr.ndim == 3:
             if arr.shape[0] not in (arr.shape[1],) and arr.shape[0] < 16 and arr.shape[0] != arr.shape[1]:
-                arr = np.moveaxis(arr, 0, 2)
+                arr = np.moveaxis(arr, 0, 2)  # (H,W,K)
             if arr.dtype != bool:
                 arr = arr != 0
             H, W, K = arr.shape
@@ -1551,129 +1493,34 @@ class Qwen2VLPlugin(BasePlugin):
 
         return None
 
-    # ========== Format/coordinate helpers (common) ==========
-    def _safe_to_pil(self, img) -> Image.Image:
-        if isinstance(img, Image.Image):
-            return img
-        if isinstance(img, np.ndarray):
-            if img.ndim == 2:
-                return Image.fromarray(img, mode="L")
-            if img.ndim == 3:
-                if img.shape[2] == 3:
-                    if img.flags["C_CONTIGUOUS"]:
-                        return Image.fromarray(img[:, :, ::-1])
-                    else:
-                        return Image.fromarray(np.ascontiguousarray(img)[:, :, ::-1])
-                if img.shape[2] == 4:
-                    rgba = img[:, :, [2, 1, 0, 3]]
-                    return Image.fromarray(rgba, mode="RGBA")
-        try:
-            return Image.fromarray(np.array(img))
-        except Exception:
-            raise TypeError(f"Unsupported image type for conversion to PIL: {type(img)}")
+    # ========== Mode detection ==========
+    def _detect_mode_from_extra(self, extra: Optional[Dict[str, Any]]) -> str:
+        if not isinstance(extra, dict):
+            return "old"
+        old_keys = ["input_point", "input_bbox", "input_mask", "point_image_path", "bbox_image_path", "mask_image_path",
+                    "bbox_image_path_1", "bbox_image_path_2", "bbox_bbox_1", "bbox_bboxes_2"]
+        if any(k in extra and extra.get(k) for k in old_keys):
+            return "old"
+        return "old"
 
-    def _pil_to_numpy_bgr(self, img: Image.Image) -> np.ndarray:
-        if img.mode not in ("RGB", "RGBA"):
-            img = img.convert("RGB")
-        arr = np.array(img)
-        if arr.ndim == 2:
-            arr = np.stack([arr] * 3, axis=-1)
-        if arr.shape[2] == 4:
-            arr = arr[:, :, :3]
-        return arr[:, :, ::-1].copy()
-
-    # ========== Coordinate scaling: old logic ==========
-    def _scale_point_old(self, point, width, height):
-        if isinstance(point, (list, tuple)) and len(point) == 1 and isinstance(point[0], (list, tuple, np.ndarray)):
-            point = point[0]
-        if not (isinstance(point, (list, tuple, np.ndarray)) and len(point) == 2):
-            raise ValueError(f"Unsupported point format: {point}")
-
-        y, x = float(point[0]), float(point[1])
-        if 0 <= x < width and 0 <= y < height:
-            return np.array([x, y], dtype=float)
-        sx, sy = y, x
-        if 0 <= sx < width and 0 <= sy < height:
-            return np.array([sx, sy], dtype=float)
-        return np.array([x, y], dtype=float)
-
-    def _scale_bbox_old(self, bbox, width, height):
-        if isinstance(bbox, (list, tuple)) and len(bbox) == 1:
-            bbox = bbox[0]
-
-        if isinstance(bbox, dict):
-            keys = set(bbox.keys())
-            if {"x", "y", "w", "h"} <= keys:
-                x1 = float(bbox["x"]); y1 = float(bbox["y"])
-                x2 = x1 + float(bbox["w"]); y2 = y1 + float(bbox["h"])
-                return np.array([x1, y1, x2, y2], dtype=float)
-            elif {"x1", "y1", "x2", "y2"} <= keys:
-                x1 = float(bbox["x1"]); y1 = float(bbox["y1"]); x2 = float(bbox["x2"]); y2 = float(bbox["y2"])
-                return np.array([x1, y1, x2, y2], dtype=float)
-            else:
-                raise ValueError(f"Unsupported bbox dict keys: {keys}")
-
-        arr = np.array(bbox, dtype=float).reshape(-1)
-        if arr.shape[0] != 4:
-            raise ValueError(f"bbox must have 4 elements, got {bbox}")
-        x1, y1, x2, y2 = arr.tolist()
-        if x2 < x1 or y2 < y1:
-            x2 = x1 + x2
-            y2 = y1 + y2
-        return np.array([x1, y1, x2, y2], dtype=float)
-
-    # ========== Coordinate scaling: new logic (ratio or 1000-scale) ==========
-    def _scale_point_new(self, point, width, height):
-        if isinstance(point, (list, tuple)) and len(point) == 1 and isinstance(point[0], (list, tuple, np.ndarray)):
-            point = point[0]
-        p = np.array(point, dtype=float).reshape(-1)
-        if p.size != 2:
-            raise ValueError(f"Invalid point: {point}")
-
-        if (p > 1.0).any():
-            p = (p / 1000.0) * np.array([width, height], dtype=float)
-        else:
-            p = p * np.array([width, height], dtype=float)
-        return p
-
-    def _scale_bbox_new(self, bbox, width, height):
-        b = bbox
-        if isinstance(b, list) and len(b) == 1 and isinstance(b[0], (list, tuple, np.ndarray)):
-            b = b[0]
-        b = np.array(b, dtype=float).reshape(-1)
-        if b.size != 4:
-            raise ValueError(f"bbox must have 4 elements, got {bbox}")
-        if (b > 1.0).any():
-            b = (b / 1000.0) * np.array([width, height, width, height], dtype=float)
-        else:
-            b = b * np.array([width, height, width, height], dtype=float)
-        x1, y1, x2, y2 = b.tolist()
-        if x2 < x1 or y2 < y1:
-            x2 = x1 + x2
-            y2 = y1 + y2
-        return np.array([x1, y1, x2, y2], dtype=float)
-
-    def _index_of_image_in_frames(self, image_path: str, frames: List[str]) -> Optional[int]:
+    # ========== Frame index helper ==========
+    def index_of_image_in_frames(self, image_path: str, frames: List[str]) -> Optional[int]:
         if not image_path:
             return None
         apath = os.path.abspath(image_path)
-
         for i, f in enumerate(frames):
             if os.path.abspath(f) == apath:
                 return i
-
         cand = []
         if "/images_8/" in apath:
             cand.append(apath.replace("/images_8/", "/images/"))
         if "/images/" in apath:
             cand.append(apath.replace("/images/", "/images_8/"))
-
         for c in cand:
             ac = os.path.abspath(c)
             for i, f in enumerate(frames):
                 if os.path.abspath(f) == ac:
                     return i
-
         base = os.path.basename(apath)
         matches = [i for i, f in enumerate(frames) if os.path.basename(f) == base]
         if len(matches) == 1:
@@ -1686,187 +1533,232 @@ class Qwen2VLPlugin(BasePlugin):
             return matches[0]
         return None
 
-    def _build_scene_extra_for_video(self, info_in: Dict[str, Any], frame_paths: List[str]) -> Dict[str, Any]:
+    # ========== Build extra_info (aligned with reference) ==========
+    def build_extra_info_for_item(self, item: Dict[str, Any], frame_paths: List[str]) -> Dict[str, Any]:
+        ein = item.get("extra_info", {}) or {}
         out: Dict[str, Any] = {}
-        ein = info_in or {}
+        colors = ["red", "blue", "green", "yellow"]
 
-        # POINT
-        point_img_path = ein.get("point_image_path")
-        point_points = self._json_maybe_parse(ein.get("point_points"))
-        ip_old = ein.get("input_point")
-        if (point_img_path and point_points) or (isinstance(ip_old, dict) and ip_old.get("image_path") and ip_old.get("points")):
-            if not (point_img_path and point_points):
-                point_img_path = ip_old.get("image_path")
-                point_points = ip_old.get("points")
-            if isinstance(point_points, list) and len(point_points) > 0:
-                out["red_point"] = point_points[0]
-                idx = self._index_of_image_in_frames(point_img_path, frame_paths)
-                if idx is None:
-                    idx = 0
-                out["point_img_idx"] = [idx, None, None]
+        def _as_list(x):
+            if x is None:
+                return []
+            if isinstance(x, list):
+                return x
+            return [x]
 
-        # BBOX
+        def _normalize_points_list(val):
+            if val is None:
+                return []
+            if isinstance(val, (list, tuple)):
+                if len(val) == 2 and all(isinstance(a, (int, float)) for a in val):
+                    return [val]
+                outp = []
+                for el in val:
+                    if isinstance(el, (list, tuple)) and len(el) == 2:
+                        outp.append(el)
+                    elif isinstance(el, (list, tuple)) and len(el) == 1 and isinstance(el[0], (list, tuple)) and len(el[0]) == 2:
+                        outp.append(el[0])
+                return outp
+            return [val] if isinstance(val, (tuple, list)) else []
+
+        def _add_points(points_list, color_key):
+            if not points_list:
+                return
+            if out.get(f"{color_key}_point") is None:
+                out[f"{color_key}_point"] = list(points_list)
+            else:
+                if isinstance(out[f"{color_key}_point"], list):
+                    out[f"{color_key}_point"].extend(list(points_list))
+                else:
+                    out[f"{color_key}_point"] = [out[f"{color_key}_point"], *list(points_list)]
+
+        # --------- BBOX pair (old keys) ----------
         bbox_img_path = ein.get("bbox_image_path")
         bbox_bboxes = self._json_maybe_parse(ein.get("bbox_bboxes"))
         ib_old = ein.get("input_bbox")
-        if (bbox_img_path and bbox_bboxes) or (isinstance(ib_old, dict) and ib_old.get("image_path") and ib_old.get("bboxes")):
-            if not (bbox_img_path and bbox_bboxes):
-                bbox_img_path = ib_old.get("image_path")
-                bbox_bboxes = ib_old.get("bboxes")
-            if isinstance(bbox_bboxes, list) and len(bbox_bboxes) > 0:
-                first = bbox_bboxes[0]
-                out["red_bbox"] = [first]
-                idx = self._index_of_image_in_frames(bbox_img_path, frame_paths)
+
+        idx_ref = None
+        idx_cand = None
+        handled_pair_bbox = False
+
+        if isinstance(ib_old, dict) and ("image_path_1" in ib_old) and ("bbox_1" in ib_old) and ("image_path_2" in ib_old) and ("bboxes_2" in ib_old):
+            ref_img = ib_old.get("image_path_1")
+            ref_bbox = ib_old.get("bbox_1")
+            cand_img = ib_old.get("image_path_2")
+            cand_bboxes = ib_old.get("bboxes_2") or []
+
+            idx_ref = self.index_of_image_in_frames(ref_img, frame_paths)
+            idx_cand = self.index_of_image_in_frames(cand_img, frame_paths)
+            if idx_ref is None:
+                idx_ref = 0
+            if idx_cand is None:
+                idx_cand = len(frame_paths) - 1
+
+            if isinstance(ref_bbox, dict) and all(k in ref_bbox for k in ("x1", "y1", "x2", "y2")):
+                out["red_bbox"] = [ref_bbox]
+            for j, b in enumerate(cand_bboxes):
+                if isinstance(b, dict) and all(k in b for k in ("x1", "y1", "x2", "y2")):
+                    color = colors[j % 4]
+                    out.setdefault(f"{color}_bbox", []).append(b)
+
+            out["bbox_img_idx"] = [idx_ref, idx_cand, idx_cand, idx_cand, idx_cand]
+            handled_pair_bbox = True
+
+        # --------- BBOX pair (new keys) ----------
+        bbox_img_path_1 = ein.get("bbox_image_path_1")
+        bbox_bbox_1 = self._json_maybe_parse(ein.get("bbox_bbox_1"))
+        bbox_img_path_2 = ein.get("bbox_image_path_2")
+        bbox_bboxes_2 = self._json_maybe_parse(ein.get("bbox_bboxes_2"))
+
+        if (not handled_pair_bbox) and bbox_img_path_1 and bbox_bbox_1 and bbox_img_path_2 and bbox_bboxes_2:
+            idx_ref = self.index_of_image_in_frames(bbox_img_path_1, frame_paths)
+            idx_cand = self.index_of_image_in_frames(bbox_img_path_2, frame_paths)
+            if idx_ref is None:
+                idx_ref = 0
+            if idx_cand is None:
+                idx_cand = len(frame_paths) - 1
+
+            if isinstance(bbox_bbox_1, dict) and all(k in bbox_bbox_1 for k in ("x1", "y1", "x2", "y2")):
+                out["red_bbox"] = [bbox_bbox_1]
+
+            if isinstance(bbox_bboxes_2, list) and len(bbox_bboxes_2) > 0:
+                cand_colors = ["blue", "green", "yellow"]
+                for j, b in enumerate(bbox_bboxes_2):
+                    if isinstance(b, dict) and all(k in b for k in ("x1", "y1", "x2", "y2")):
+                        color = cand_colors[j % len(cand_colors)]
+                        out.setdefault(f"{color}_bbox", []).append(b)
+
+            out["bbox_img_idx"] = [idx_ref, idx_cand, idx_cand, idx_cand, idx_cand]
+            handled_pair_bbox = True
+
+        # --------- BBOX single-side ----------
+        if not handled_pair_bbox:
+            if (bbox_img_path and bbox_bboxes) or (isinstance(ib_old, dict) and ib_old.get("image_path") and ib_old.get("bboxes")):
+                if not (bbox_img_path and bbox_bboxes):
+                    bbox_img_path = ib_old.get("image_path")
+                    bbox_bboxes = ib_old.get("bboxes")
+                idx = self.index_of_image_in_frames(bbox_img_path, frame_paths)
                 if idx is None:
                     idx = 0
-                out["bbox_img_idx"] = [idx, None, None]
+                if isinstance(bbox_bboxes, list) and len(bbox_bboxes) > 0:
+                    for j, b in enumerate(bbox_bboxes):
+                        if isinstance(b, dict) and all(k in b for k in ("x1", "y1", "x2", "y2")):
+                            color = colors[j % 4]
+                            out.setdefault(f"{color}_bbox", []).append(b)
+                    out["bbox_img_idx"] = [idx if out.get(f"{c}_bbox") else None for c in colors] + [None]
 
-        # MASK
+        # --------- POINTS single-side ----------
+        ip_old = ein.get("input_point")
+        point_img_path = ein.get("point_image_path")
+        point_points = self._json_maybe_parse(ein.get("point_points"))
+
+        if isinstance(ip_old, dict) and (ip_old.get("image_path") and ip_old.get("points")):
+            p_img = ip_old.get("image_path")
+            pts = _normalize_points_list(ip_old.get("points"))
+            idxp = self.index_of_image_in_frames(p_img, frame_paths)
+            if idxp is None:
+                idxp = 0
+            for j, pt in enumerate(pts):
+                color = colors[j % 4]
+                _add_points([pt], color)
+            out["point_img_idx"] = [idxp if out.get(f"{c}_point") else None for c in colors] + [None]
+        elif (point_img_path and point_points):
+            idxp = self.index_of_image_in_frames(point_img_path, frame_paths)
+            if idxp is None:
+                idxp = 0
+            pts = _normalize_points_list(point_points)
+            for j, pt in enumerate(pts):
+                color = colors[j % 4]
+                _add_points([pt], color)
+            out["point_img_idx"] = [idxp if out.get(f"{c}_point") else None for c in colors] + [None]
+
+        # --------- MASKS (fixed color mapping) ----------
+        im_old = ein.get("input_mask")
         mask_img_path = ein.get("mask_image_path")
         mask_mask_path = ein.get("mask_mask_path")
         mask_object_ids = self._json_maybe_parse(ein.get("mask_object_ids"))
-        im_old = ein.get("input_mask")
-        selected_mask = None
-        if (mask_img_path and mask_mask_path) or (isinstance(im_old, dict) and im_old.get("image_path") and im_old.get("mask_path")):
-            if not (mask_img_path and mask_mask_path):
-                mask_img_path = im_old.get("image_path")
-                mask_mask_path = im_old.get("mask_path")
-                mask_object_ids = im_old.get("object_ids", None)
 
-            mask_arr = self._load_mask_array(mask_mask_path) if mask_mask_path else None
-            if mask_arr is not None:
-                selected_mask = self._select_mask_from_array(mask_arr, mask_object_ids)
-            if selected_mask is not None:
-                out["red_mask_info"] = {"mask_array": selected_mask}
-                idx = self._index_of_image_in_frames(mask_img_path, frame_paths)
-                if idx is None:
-                    idx = 0
-                out["mask_img_idx"] = [idx]
+        def _assign_masks_fixed_colors(masks_list, idxm):
+            for j, m in enumerate(masks_list):
+                if j == 0:
+                    out.setdefault("red_mask_info", []).append({"mask_array": m})
+                elif j == 1:
+                    out.setdefault("blue_mask_info", []).append({"mask_array": m})
+                elif j == 2:
+                    out.setdefault("green_mask_info", []).append({"mask_array": m})
+                else:
+                    out.setdefault("yellow_mask_info", []).append({"mask_array": m})
+            out["mask_img_idx"] = [
+                idxm if out.get("red_mask_info") else None,
+                idxm if out.get("blue_mask_info") else None,
+                idxm if out.get("green_mask_info") else None,
+                idxm if out.get("yellow_mask_info") else None,
+            ]
 
-        return out
-
-    def _normalize_extra_info(self, extra_info: Optional[Union[Dict[str, Any], List[Optional[Dict[str, Any]]]]], batch_size: int):
-        if extra_info is None:
-            return [None] * batch_size
-        if isinstance(extra_info, list) and len(extra_info) == 0:
-            return [None] * batch_size
-        if isinstance(extra_info, dict):
-            if batch_size != 1:
-                raise ValueError(f"extra_info dict can only be broadcast when batch_size == 1 (got {batch_size}).")
-            return [extra_info] * batch_size
-        if isinstance(extra_info, list):
-            if len(extra_info) != batch_size:
-                raise ValueError(f"extra_info list length {len(extra_info)} != batch size {batch_size}")
-            return extra_info
-        raise TypeError(f"extra_info must be dict or list[dict], got {type(extra_info)}")
-
-    def _draw_annotations_on_pil_old(self, img: Image.Image, extra_info: Dict[str, Any], current_img_idx: int) -> Image.Image:
-        draw = ImageDraw.Draw(img)
-        W, H = img.width, img.height
-        colors_rgb = {"red": (255, 0, 0), "green": (0, 255, 0), "blue": (0, 128, 255)}
-        order = ["red", "green", "blue"]
-
-        def _normalize_indices(val):
-            if val is None:
-                return None
-            if isinstance(val, list) and len(val) == 1 and isinstance(val[0], list):
-                return val[0]
-            return val
-
-        point_img_idx = _normalize_indices(extra_info.get("point_img_idx"))
-        bbox_img_idx = _normalize_indices(extra_info.get("bbox_img_idx"))
-        mask_img_idx = _normalize_indices(extra_info.get("mask_img_idx"))
-
-        # Points
-        for i, color in enumerate(order):
-            pt = extra_info.get(f"{color}_point")
-            if pt is None:
-                continue
-            if point_img_idx is not None:
-                if i >= len(point_img_idx) or point_img_idx[i] is None or point_img_idx[i] != current_img_idx:
-                    continue
-            xy = self._scale_point_old(pt, W, H)
-            x, y = float(xy[0]), float(xy[1])
-            if not (0 <= x < W and 0 <= y < H):
-                continue
-            r = max(8, int(0.014 * min(W, H)))
-            draw.ellipse((x - r, y - r, x + r, y + r), fill=colors_rgb[color], outline=colors_rgb[color], width=2)
-
-        # BBoxes
-        for i, color in enumerate(order):
-            bb = extra_info.get(f"{color}_bbox")
-            if bb is None:
-                continue
-            if bbox_img_idx is not None:
-                if i >= len(bbox_img_idx) or bbox_img_idx[i] is None or bbox_img_idx[i] != current_img_idx:
-                    continue
-            x1, y1, x2, y2 = self._scale_bbox_old(bb, W, H)
-            if x1 >= W or y1 >= H or x2 <= 0 or y2 <= 0:
-                continue
-            draw.rectangle((x1, y1, x2, y2), outline=colors_rgb[color], width=max(2, int(0.004 * min(W, H))))
-
-        # Mask
-        red_mask_info = extra_info.get("red_mask_info", None)
-        if red_mask_info is not None and mask_img_idx is not None:
-            allowed = False
-            if isinstance(mask_img_idx, list):
-                allowed = (current_img_idx in [m for m in mask_img_idx if m is not None])
+        if isinstance(im_old, dict) and im_old.get("image_path") and im_old.get("mask_path"):
+            m_img = im_old.get("image_path")
+            m_path = im_old.get("mask_path")
+            obj_ids = im_old.get("object_ids", None)
+            idxm = self.index_of_image_in_frames(m_img, frame_paths)
+            if idxm is None:
+                idxm = 0
+            arr = self._load_mask_array(m_path) if m_path else None
+            if obj_ids is None:
+                ids_list = [None]
+            elif isinstance(obj_ids, (list, tuple)):
+                ids_list = list(obj_ids)
             else:
-                allowed = (current_img_idx == mask_img_idx)
-            if allowed:
-                mask_arr = red_mask_info.get("mask_array")
-                if isinstance(mask_arr, np.ndarray):
-                    img_with = self._overlay_mask_rgba(img, mask_arr, color=(255, 0, 0), alpha=0.35)
-                    img.paste(img_with)
+                ids_list = [obj_ids]
+            masks_ref = []
+            if arr is not None and ids_list:
+                for oid in ids_list:
+                    sel = self._select_mask_from_array(arr, oid)
+                    if sel is not None:
+                        masks_ref.append(sel)
+            if masks_ref:
+                _assign_masks_fixed_colors(masks_ref, idxm)
 
-        return img
+        elif (mask_img_path and mask_mask_path):
+            idxm = self.index_of_image_in_frames(mask_img_path, frame_paths)
+            if idxm is None:
+                idxm = 0
+            mask_paths = _as_list(mask_mask_path)
+            raw_ids = mask_object_ids
+            if isinstance(raw_ids, (list, tuple)):
+                obj_ids_list = list(raw_ids)
+            else:
+                obj_ids_list = [raw_ids] if raw_ids is not None else [None]
 
-    def _draw_annotations_on_pil_new(self, img: Image.Image, extra_info: Dict[str, Any], current_img_idx: int) -> Image.Image:
-        draw = ImageDraw.Draw(img)
-        W, H = img.width, img.height
-        colors_rgb = {"red": (255, 0, 0), "green": (0, 255, 0), "blue": (0, 128, 255)}
-        order = ["red", "green", "blue"]
+            masks_selected: List[np.ndarray] = []
+            if len(mask_paths) == 1 and len(obj_ids_list) >= 1:
+                arr = self._load_mask_array(mask_paths[0]) if mask_paths[0] else None
+                if arr is not None:
+                    for oid in obj_ids_list:
+                        sel = self._select_mask_from_array(arr, oid)
+                        if sel is not None:
+                            masks_selected.append(sel)
+            else:
+                for j, mp in enumerate(mask_paths):
+                    arr = self._load_mask_array(mp) if mp else None
+                    oid = obj_ids_list[j] if j < len(obj_ids_list) else None
+                    sel = self._select_mask_from_array(arr, oid) if arr is not None else None
+                    if sel is not None:
+                        masks_selected.append(sel)
 
-        def _normalize_indices(val):
-            if val is None:
-                return None
-            if isinstance(val, list) and len(val) == 1 and isinstance(val[0], list):
-                return val[0]
-            return val
+            if masks_selected:
+                _assign_masks_fixed_colors(masks_selected, idxm)
 
-        point_img_idx = _normalize_indices(extra_info.get("point_img_idx"))
-        bbox_img_idx = _normalize_indices(extra_info.get("bbox_img_idx"))
+        # --------- Align point/mask idx if bbox pair exists ----------
+        if idx_ref is not None and idx_cand is not None:
+            if any(out.get(f"{c}_point") for c in colors):
+                out["point_img_idx"] = [idx_ref, idx_cand, idx_cand, idx_cand, idx_cand]
+            has_any_mask = any(out.get(f"{c}_mask_info") for c in ["red", "blue", "green", "yellow"])
+            if has_any_mask:
+                out["mask_img_idx"] = [idx_ref, idx_cand, idx_cand, idx_cand, idx_cand]
 
-        # Points
-        for i, color in enumerate(order):
-            pt = extra_info.get(f"{color}_point")
-            if pt is None:
-                continue
-            if point_img_idx is not None:
-                if i >= len(point_img_idx) or point_img_idx[i] is None or point_img_idx[i] != current_img_idx:
-                    continue
-            xy = self._scale_point_new(pt, W, H)
-            x, y = float(xy[0]), float(xy[1])
-            r = max(4, int(0.01 * min(W, H)))
-            draw.ellipse((x - r, y - r, x + r, y + r), fill=colors_rgb[color], outline=colors_rgb[color], width=2)
-            try:
-                draw.text((x + r + 2, y + r + 2), str(i + 1), fill=colors_rgb[color])
-            except Exception:
-                pass
+        return out if out else {}
 
-        # BBoxes
-        for i, color in enumerate(order):
-            bb = extra_info.get(f"{color}_bbox")
-            if bb is None:
-                continue
-            if bbox_img_idx is not None:
-                if i >= len(bbox_img_idx) or bbox_img_idx[i] is None or bbox_img_idx[i] != current_img_idx:
-                    continue
-            x1, y1, x2, y2 = self._scale_bbox_new(bb, W, H)
-            draw.rectangle((x1, y1, x2, y2), outline=colors_rgb[color], width=max(2, int(0.004 * min(W, H))))
-
-        return img
-
+    # ========== Old-path annotation (aligned with reference) ==========
     def _maybe_annotate_frames_old(
         self,
         pil_frames_at_original_size: List[Image.Image],
@@ -1876,21 +1768,332 @@ class Qwen2VLPlugin(BasePlugin):
         debug_dir: str = "debug_video_anns",
         video_tag: str = "vid",
     ) -> List[Image.Image]:
+
+        class Visualizer:
+            def _scale_point(self, point, width, height):
+                if isinstance(point, (list, tuple)) and len(point) == 1 and isinstance(point[0], (list, tuple, np.ndarray)):
+                    point = point[0]
+                if not (isinstance(point, (list, tuple, np.ndarray)) and len(point) == 2):
+                    raise ValueError(f"Unsupported point format: {point}")
+                y, x = float(point[0]), float(point[1])
+                if 0 <= x < width and 0 <= y < height:
+                    return np.array([x, y], dtype=float)
+                sx, sy = y, x
+                if 0 <= sx < width and 0 <= sy < height:
+                    return np.array([sx, sy], dtype=float)
+                return np.array([x, y], dtype=float)
+
+            def _scale_bbox(self, bbox, width, height):
+                if isinstance(bbox, (list, tuple)) and len(bbox) == 1 and isinstance(bbox[0], dict):
+                    b = bbox[0]
+                elif isinstance(bbox, dict):
+                    b = bbox
+                elif isinstance(bbox, (list, tuple, np.ndarray)):
+                    b = np.array(bbox, dtype=float).flatten()
+                else:
+                    raise ValueError(f"Unsupported bbox format: {bbox}")
+
+                if isinstance(b, dict):
+                    if all(k in b for k in ("x1", "y1", "x2", "y2")):
+                        x1 = float(b["x1"]); y1 = float(b["y1"]); x2 = float(b["x2"]); y2 = float(b["y2"])
+                    elif all(k in b for k in ("x", "y", "w", "h")):
+                        x = float(b["x"]); y = float(b["y"]); w = float(b["w"]); h = float(b["h"])
+                        x1, y1, x2, y2 = x, y, x + w, y + h
+                    else:
+                        vals = [b.get(k) for k in ("x1","y1","x2","y2")]
+                        if all(v is not None for v in vals):
+                            x1, y1, x2, y2 = map(float, vals)
+                        else:
+                            raise ValueError(f"bbox dict must contain x1,y1,x2,y2 or x,y,w,h: {b}")
+                else:
+                    arr = np.array(b, dtype=float).flatten()
+                    if arr.size != 4:
+                        raise ValueError(f"bbox must have 4 elements, got {bbox}")
+                    x1, y1, x2, y2 = arr.tolist()
+                    if x2 < x1:
+                        x1, x2 = x2, x1
+                    if y2 < y1:
+                        y1, y2 = y2, y1
+
+                x1 = max(0.0, min(x1, width - 1))
+                y1 = max(0.0, min(y1, height - 1))
+                x2 = max(0.0, min(x2, width - 1))
+                y2 = max(0.0, min(y2, height - 1))
+                return np.array([x1, y1, x2, y2], dtype=float)
+
+            def _draw_annotations_on_pil(self, img: Image.Image, extra_info: Dict[str, Any], current_img_idx: int) -> Image.Image:
+                draw = ImageDraw.Draw(img)
+                W, H = img.width, img.height
+                colors_rgb = {
+                    "red": (255, 0, 0),
+                    "green": (0, 255, 0),
+                    "blue": (0, 128, 255),
+                    "yellow": (255, 215, 0),
+                }
+                order = ["red", "blue", "green", "yellow"]
+
+                def _normalize_indices(val):
+                    if val is None:
+                        return None
+                    if isinstance(val, list) and len(val) == 1 and isinstance(val[0], list):
+                        return val[0]
+                    return val
+
+                point_img_idx = _normalize_indices(extra_info.get("point_img_idx"))
+                bbox_img_idx = _normalize_indices(extra_info.get("bbox_img_idx"))
+                mask_img_idx = _normalize_indices(extra_info.get("mask_img_idx"))
+
+                stroke = max(2, int(0.004 * min(W, H)))
+
+                def _get_points_list(val):
+                    if val is None:
+                        return []
+                    if isinstance(val, (list, tuple)):
+                        out = []
+                        for el in val:
+                            if isinstance(el, (list, tuple, np.ndarray)):
+                                out.append(el)
+                            elif isinstance(el, (list, tuple)) and len(el) == 1 and isinstance(el[0], (list, tuple, np.ndarray)):
+                                out.append(el[0])
+                        if not out and len(val) == 2 and all(isinstance(x, (int, float)) for x in val):
+                            return [val]
+                        return out
+                    if isinstance(val, (list, tuple, np.ndarray)):
+                        return [val]
+                    return []
+
+                def _get_boxes_list(val):
+                    if val is None:
+                        return []
+                    if isinstance(val, dict):
+                        return [val]
+                    if isinstance(val, (list, tuple)):
+                        out = []
+                        for el in val:
+                            if isinstance(el, dict):
+                                out.append(el)
+                            elif isinstance(el, (list, tuple)) and len(el) == 1 and isinstance(el[0], dict):
+                                out.append(el[0])
+                        return out
+                    return []
+
+                def _iter_mask_infos_for_color(color_key: str):
+                    info = extra_info.get(f"{color_key}_mask_info", None)
+                    outs = []
+                    if info is None:
+                        return outs
+                    if isinstance(info, dict):
+                        arr = info.get("mask_array")
+                        if isinstance(arr, np.ndarray):
+                            outs.append(arr)
+                    elif isinstance(info, list):
+                        for el in info:
+                            if isinstance(el, dict) and isinstance(el.get("mask_array"), np.ndarray):
+                                outs.append(el["mask_array"])
+                    return outs
+
+                red_points = _get_points_list(extra_info.get("red_point"))
+                blue_points = _get_points_list(extra_info.get("blue_point"))
+                green_points = _get_points_list(extra_info.get("green_point"))
+                yellow_points = _get_points_list(extra_info.get("yellow_point"))
+                per_color_points = [red_points, blue_points, green_points, yellow_points]
+
+                red_boxes = _get_boxes_list(extra_info.get("red_bbox"))
+                blue_boxes = _get_boxes_list(extra_info.get("blue_bbox"))
+                green_boxes = _get_boxes_list(extra_info.get("green_bbox"))
+                yellow_boxes = _get_boxes_list(extra_info.get("yellow_bbox"))
+
+                red_masks = _iter_mask_infos_for_color("red")
+                blue_masks = _iter_mask_infos_for_color("blue")
+                green_masks = _iter_mask_infos_for_color("green")
+                yellow_masks = _iter_mask_infos_for_color("yellow")
+
+                idx_ref_from_global = None
+                idx_cand_from_global = None
+
+                if bbox_img_idx is not None and isinstance(bbox_img_idx, list) and len(bbox_img_idx) >= 4:
+                    idx_ref_from_global = bbox_img_idx[0]
+                    for k in [1, 2, 3, 4]:
+                        if k < len(bbox_img_idx) and bbox_img_idx[k] is not None:
+                            idx_cand_from_global = bbox_img_idx[k]
+                            break
+                if mask_img_idx is not None and isinstance(mask_img_idx, list) and len(mask_img_idx) >= 4:
+                    idx_ref_from_global = mask_img_idx[0]
+                    for k in [1, 2, 3, 4]:
+                        if k < len(mask_img_idx) and mask_img_idx[k] is not None:
+                            idx_cand_from_global = mask_img_idx[k]
+                            break
+                if point_img_idx is not None and isinstance(point_img_idx, list) and len(point_img_idx) >= 4:
+                    idx_ref_from_global = point_img_idx[0]
+                    for k in [1, 2, 3, 4]:
+                        if k < len(point_img_idx) and point_img_idx[k] is not None:
+                            idx_cand_from_global = point_img_idx[k]
+                            break
+
+                on_ref = (idx_ref_from_global is not None and current_img_idx == idx_ref_from_global)
+                on_cand = (idx_cand_from_global is not None and current_img_idx == idx_cand_from_global)
+
+                def _draw_point(pt, color):
+                    try:
+                        xy = self._scale_point(pt, W, H)
+                        x, y = float(xy[0]), float(xy[1])
+                        if not (0 <= x < W and 0 <= y < H):
+                            return
+                        r = max(8, int(0.014 * min(W, H)))
+                        draw.ellipse((x - r, y - r, x + r, y + r), fill=colors_rgb[color], outline=colors_rgb[color], width=2)
+                    except Exception as e:
+                        print(f"[WARN] bad point {pt}: {e}")
+
+                def _overlay_mask(mk, color):
+                    try:
+                        img_with = overlay_mask_rgba(
+                            img,
+                            mk,
+                            color={"red": (255, 0, 0), "green": (0, 255, 0), "blue": (0, 128, 255), "yellow": (255, 215, 0)}[color],
+                            alpha=0.35,
+                        )
+                        img.paste(img_with)
+                    except Exception as e:
+                        print(f"[WARN] bad mask for color {color}: {e}")
+
+                # POINTS
+                if on_ref:
+                    if point_img_idx and isinstance(point_img_idx, list) and len(point_img_idx) > 0 and point_img_idx[0] == current_img_idx:
+                        for pt in red_points[:1]:
+                            _draw_point(pt, "red")
+                    if point_img_idx and isinstance(point_img_idx, list) and len(point_img_idx) > 1 and point_img_idx[1] == current_img_idx:
+                        for pt in blue_points[:1]:
+                            _draw_point(pt, "blue")
+                elif on_cand:
+                    cand_pool = []
+                    if len(red_points) > 1:
+                        cand_pool.extend(red_points[1:])
+                    cand_pool.extend(green_points)
+                    cand_pool.extend(blue_points)
+                    cand_pool.extend(yellow_points)
+                    recolor = ["red", "blue", "green", "yellow"]
+                    for j, pt in enumerate(cand_pool):
+                        _draw_point(pt, recolor[j % 4])
+                else:
+                    for i, color in enumerate(order):
+                        allowed = True
+                        if point_img_idx is not None:
+                            if isinstance(point_img_idx, list):
+                                if i >= len(point_img_idx) or point_img_idx[i] is None or point_img_idx[i] != current_img_idx:
+                                    allowed = False
+                            else:
+                                allowed = (point_img_idx == current_img_idx)
+                        if not allowed:
+                            continue
+                        for pt in per_color_points[i]:
+                            _draw_point(pt, color)
+
+                # BBOXES
+                if on_ref:
+                    if bbox_img_idx and isinstance(bbox_img_idx, list) and len(bbox_img_idx) > 0 and bbox_img_idx[0] == current_img_idx:
+                        for bb in red_boxes[:1]:
+                            try:
+                                x1, y1, x2, y2 = self._scale_bbox(bb, W, H)
+                                if x1 < W and y1 < H and x2 > 0 and y2 > 0:
+                                    draw.rectangle((x1, y1, x2, y2), outline=colors_rgb["red"], width=stroke)
+                            except Exception as e:
+                                print(f"[WARN] bad ref bbox: {bb} ({e})")
+                    if bbox_img_idx and isinstance(bbox_img_idx, list) and len(bbox_img_idx) > 1 and bbox_img_idx[1] == current_img_idx:
+                        for bb in blue_boxes[:1]:
+                            try:
+                                x1, y1, x2, y2 = self._scale_bbox(bb, W, H)
+                                if x1 < W and y1 < H and x2 > 0 and y2 > 0:
+                                    draw.rectangle((x1, y1, x2, y2), outline=colors_rgb["blue"], width=stroke)
+                            except Exception as e:
+                                print(f"[WARN] bad ref bbox: {bb} ({e})")
+                elif on_cand:
+                    cand_pool = []
+                    if len(red_boxes) > 1:
+                        cand_pool.extend(red_boxes[1:])
+                    if green_boxes:
+                        cand_pool.extend(green_boxes)
+                    if blue_boxes:
+                        cand_pool.extend(blue_boxes)
+                    if yellow_boxes:
+                        cand_pool.extend(yellow_boxes)
+                    recolor = ["red", "blue", "green", "yellow"]
+                    for j, bb in enumerate(cand_pool):
+                        try:
+                            x1, y1, x2, y2 = self._scale_bbox(bb, W, H)
+                            if x1 < W and y1 < H and x2 > 0 and y2 > 0:
+                                draw.rectangle((x1, y1, x2, y2), outline=colors_rgb[recolor[j % 4]], width=stroke)
+                        except Exception as e:
+                            print(f"[WARN] bad cand bbox: {bb} ({e})")
+                else:
+                    per_color_boxes = [red_boxes, blue_boxes, green_boxes, yellow_boxes]
+                    for i, color in enumerate(order):
+                        if bbox_img_idx is not None:
+                            if isinstance(bbox_img_idx, list):
+                                if i >= len(bbox_img_idx) or bbox_img_idx[i] is None or bbox_img_idx[i] != current_img_idx:
+                                    continue
+                            else:
+                                if bbox_img_idx != current_img_idx:
+                                    continue
+                        boxes = per_color_boxes[i]
+                        for bb in boxes:
+                            try:
+                                x1, y1, x2, y2 = self._scale_bbox(bb, W, H)
+                                if x1 < W and y1 < H and x2 > 0 and y2 > 0:
+                                    draw.rectangle((x1, y1, x2, y2), outline=colors_rgb[color], width=stroke)
+                            except Exception as e:
+                                print(f"[WARN] bad bbox on frame {current_img_idx}: {bb} ({e})")
+
+                # MASKS
+                if on_ref:
+                    if red_masks and isinstance(mask_img_idx, list) and len(mask_img_idx) > 0 and mask_img_idx[0] == current_img_idx:
+                        _overlay_mask(red_masks[0], "red")
+                    if blue_masks and isinstance(mask_img_idx, list) and len(mask_img_idx) > 1 and mask_img_idx[1] == current_img_idx:
+                        _overlay_mask(blue_masks[0], "blue")
+                elif on_cand:
+                    cand_pool = []
+                    if len(red_masks) > 1:
+                        cand_pool.extend(red_masks[1:])
+                    cand_pool.extend(green_masks)
+                    cand_pool.extend(blue_masks)
+                    cand_pool.extend(yellow_masks)
+                    palette = ["red", "blue", "green", "yellow"]
+                    for j, mk in enumerate(cand_pool):
+                        _overlay_mask(mk, palette[j % 4])
+                else:
+                    per_color_masks = [red_masks, blue_masks, green_masks, yellow_masks]
+                    for i, color in enumerate(order):
+                        allowed = True
+                        if mask_img_idx is not None:
+                            if isinstance(mask_img_idx, list):
+                                if i < len(mask_img_idx) and mask_img_idx[i] is not None:
+                                    allowed = (mask_img_idx[i] == current_img_idx)
+                                else:
+                                    allowed = current_img_idx in [m for m in mask_img_idx if m is not None] if any(m is not None for m in mask_img_idx) else True
+                            else:
+                                allowed = (mask_img_idx == current_img_idx)
+                        if not allowed:
+                            continue
+                        for mk in per_color_masks[i]:
+                            _overlay_mask(mk, color)
+
+                return img
+
         if not extra_info or not pil_frames_at_original_size:
             return pil_frames_at_original_size
 
         os.makedirs(debug_dir, exist_ok=True)
         annotated_frames: List[Image.Image] = []
+        viz = Visualizer()
 
         for j, pil in enumerate(pil_frames_at_original_size):
             current_idx = int(sampled_indices[j]) if sampled_indices is not None and j < len(sampled_indices) else j
-            annotated = self._draw_annotations_on_pil_old(pil.copy(), extra_info, current_img_idx=current_idx)
+            annotated = viz._draw_annotations_on_pil(pil.copy(), extra_info, current_img_idx=current_idx)
             annotated_frames.append(annotated)
 
             if debug:
                 now = datetime.now()
                 timestamp = now.strftime("%Y%m%d_%H%M%S_") + f"{now.microsecond // 1000:03d}"
-                debug_name = f"{video_tag}_frame{j:04d}_{current_idx:04d}"+f"_{timestamp}.jpg"
+                debug_name = f"{video_tag}_frame{j:04d}_{current_idx:04d}_{timestamp}.jpg"
                 try:
                     annotated.save(os.path.join(debug_dir, debug_name))
                 except Exception:
@@ -1898,119 +2101,78 @@ class Qwen2VLPlugin(BasePlugin):
 
         return annotated_frames
 
-    def _maybe_annotate_frames_new(
-        self,
-        processed_frames: List[Any],
-        sampled_indices: List[int],
-        extra_info: Optional[Dict[str, Any]],
-        debug: bool = False,
-        debug_dir: str = "debug_video_anns",
-        video_tag: str = "vid",
-    ) -> List[Any]:
-        if not extra_info:
-            return processed_frames
+    # ========== New-path drawing (keep colors aligned) ==========
+    def _draw_annotations_on_pil_new(self, img: Image.Image, extra_info: Dict[str, Any], current_img_idx: int) -> Image.Image:
+        draw = ImageDraw.Draw(img)
+        W, H = img.width, img.height
+        colors_rgb = {"red": (255, 0, 0), "blue": (0, 128, 255), "green": (0, 255, 0), "yellow": (255, 215, 0)}
+        order = ["red", "blue", "green", "yellow"]
 
-        os.makedirs(debug_dir, exist_ok=True)
-        annotated_frames = []
-        for j, frame in enumerate(processed_frames):
-            pil = self._safe_to_pil(frame)
-            current_idx = int(sampled_indices[j]) if sampled_indices is not None and j < len(sampled_indices) else j
-            annotated = self._draw_annotations_on_pil_new(pil.copy(), extra_info, current_img_idx=current_idx)
+        def _norm_idx(x):
+            if x is None:
+                return None
+            if isinstance(x, list) and len(x) == 1 and isinstance(x[0], list):
+                return x[0]
+            return x
 
-            if isinstance(frame, Image.Image):
-                out = annotated
+        bbox_img_idx = _norm_idx(extra_info.get("bbox_img_idx"))
+        mask_img_idx = _norm_idx(extra_info.get("mask_img_idx"))
+        stroke = max(2, int(0.004 * min(W, H)))
+
+        # boxes
+        for i, color in enumerate(order):
+            bb = extra_info.get(f"{color}_bbox")
+            if bb is None:
+                continue
+            if bbox_img_idx is not None:
+                if isinstance(bbox_img_idx, list):
+                    if i >= len(bbox_img_idx) or bbox_img_idx[i] is None or bbox_img_idx[i] != current_img_idx:
+                        continue
+                else:
+                    if bbox_img_idx != current_img_idx:
+                        continue
+            b = bb[0] if isinstance(bb, list) and bb and isinstance(bb[0], dict) else bb
+            if isinstance(b, dict):
+                x1, y1, x2, y2 = float(b["x1"]), float(b["y1"]), float(b["x2"]), float(b["y2"])
             else:
-                out = self._pil_to_numpy_bgr(annotated)
-            annotated_frames.append(out)
+                arr = np.array(b, dtype=float).reshape(-1)
+                x1, y1, x2, y2 = arr.tolist()
+            draw.rectangle((x1, y1, x2, y2), outline=colors_rgb[color], width=stroke)
 
-            if debug:
-                debug_name = f"{video_tag}_frame{j:04d}_orig{current_idx:04d}.jpg"
-                try:
-                    annotated.save(os.path.join(debug_dir, debug_name))
-                except Exception:
-                    pass
+        # masks
+        def _iter_mask(color_key):
+            info = extra_info.get(f"{color_key}_mask_info", None)
+            outs = []
+            if info is None:
+                return outs
+            if isinstance(info, dict) and isinstance(info.get("mask_array"), np.ndarray):
+                outs.append(info["mask_array"])
+            elif isinstance(info, list):
+                for el in info:
+                    if isinstance(el, dict) and isinstance(el.get("mask_array"), np.ndarray):
+                        outs.append(el["mask_array"])
+            return outs
 
-        return annotated_frames
+        for i, color in enumerate(order):
+            allowed = True
+            if mask_img_idx is not None:
+                if isinstance(mask_img_idx, list):
+                    if i < len(mask_img_idx) and mask_img_idx[i] is not None:
+                        allowed = (mask_img_idx[i] == current_img_idx)
+                    else:
+                        allowed = current_img_idx in [m for m in mask_img_idx if m is not None] if any(m is not None for m in mask_img_idx) else True
+                else:
+                    allowed = (mask_img_idx == current_img_idx)
+            if not allowed:
+                continue
+            for mk in _iter_mask(color):
+                img_with = overlay_mask_rgba(img, mk, color=colors_rgb[color], alpha=0.35)
+                img.paste(img_with)
 
-    def process_and_pad_images(self, geometry_encoder_inputs):
-        if not geometry_encoder_inputs or not geometry_encoder_inputs[0]:
-            raise ValueError("Input list cannot be empty")
+        return img
 
-        processed_batches_364 = []
-        processed_batches_420 = []
-
-        to_tensor = TF.ToTensor()
-        extra_type = "dinov3"
-        target_sizes = [364, 420] if extra_type != "vggt" else [364, 364]
-
-        def preprocess_for_target(img: Image.Image, target_size: int):
-            if not isinstance(img, Image.Image):
-                raise TypeError(f"Expected a PIL Image, but got {type(img)}")
-
-            if img.mode == "RGBA":
-                background = Image.new("RGBA", img.size, (255, 255, 255, 255))
-                img = Image.alpha_composite(background, img)
-
-            img = img.convert("RGB")
-            width, height = img.size
-
-            if width >= height:
-                new_width = target_size
-                new_height = round(height * (new_width / width) / 14) * 14
-            else:
-                new_height = target_size
-                new_width = round(width * (new_height / height) / 14) * 14
-
-            new_width = max(14, new_width)
-            new_height = max(14, new_height)
-
-            img_resized = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
-            img_tensor = to_tensor(img_resized)
-
-            h_padding = target_size - img_tensor.shape[1]
-            w_padding = target_size - img_tensor.shape[2]
-
-            if h_padding < 0 or w_padding < 0:
-                top = max(0, (img_tensor.shape[1] - target_size) // 2)
-                left = max(0, (img_tensor.shape[2] - target_size) // 2)
-                img_tensor = img_tensor[:, top : top + target_size, left : left + target_size]
-                h_padding = 0
-                w_padding = 0
-
-            if h_padding > 0 or w_padding > 0:
-                pad_top = h_padding // 2
-                pad_bottom = h_padding - pad_top
-                pad_left = w_padding // 2
-                pad_right = w_padding - pad_left
-
-                img_tensor = torch.nn.functional.pad(
-                    img_tensor, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
-                )
-            return img_tensor
-
-        for image_list in geometry_encoder_inputs:
-            processed_images_364 = []
-            processed_images_420 = []
-            for img in image_list:
-                pil_img = self._safe_to_pil(img)
-                img_364 = preprocess_for_target(pil_img, target_sizes[0])
-                img_420 = preprocess_for_target(pil_img, target_sizes[1])
-                processed_images_364.append(img_364)
-                processed_images_420.append(img_420)
-
-            images_tensor_364 = torch.stack(processed_images_364)
-            images_tensor_420 = torch.stack(processed_images_420)
-            processed_batches_364.append(images_tensor_364)
-            processed_batches_420.append(images_tensor_420)
-
-        return processed_batches_364, processed_batches_420
-
-    @override
-    def _regularize_videos(
-        self,
-        videos: list["VideoInput"],
-        **kwargs,
-    ) -> dict[str, Union[list[list["ImageObject"]], list[float]]]:
+    # ========== Video regularization (use old path visualization) ==========
+    def _regularize_videos(self, videos: list["VideoInput"], **kwargs) -> dict[str, Union[list[list["ImageObject"]], list[float]]]:
         results_per_sample: List[List[Image.Image]] = []
         fps_per_sample: List[float] = []
 
@@ -2032,126 +2194,84 @@ class Qwen2VLPlugin(BasePlugin):
             fps_used = video_fps_default
             sampled_indices: Optional[List[int]] = None
 
-            if mode == "old":
-                if isinstance(video, list) and all(isinstance(p, str) for p in video):
-                    all_paths = video
-                    total_frames = len(all_paths)
-                    if total_frames == 0:
-                        results_per_sample.append([])
-                        fps_per_sample.append(fps_used)
-                        continue
+            if isinstance(video, list) and all(isinstance(p, str) for p in video):
+                all_paths = video
+                total_frames = len(all_paths)
+                if total_frames == 0:
+                    results_per_sample.append([])
+                    fps_per_sample.append(fps_used)
+                    continue
 
-                    num_samples = min(total_frames, video_maxlen)
-                    sample_indices = np.linspace(0, total_frames - 1, num_samples, dtype=np.int32)
-                    sampled_indices = np.unique(sample_indices).tolist()
-                    sampled_paths = [all_paths[i] for i in sampled_indices]
+                built = {}
+                if isinstance(sample_extra, dict):
+                    try:
+                        built = self.build_extra_info_for_item({"extra_info": sample_extra, "videos": [all_paths]}, all_paths)
+                    except Exception as e:
+                        print(f"[WARN] build_extra_info_for_item failed: {e}")
+                        built = {}
 
-                    loaded_pils: List[Image.Image] = []
-                    for p in sampled_paths:
+                num_samples = min(total_frames, video_maxlen)
+                sample_indices = np.linspace(0, total_frames - 1, num_samples, dtype=np.int32)
+                sampled_indices = np.unique(sample_indices).tolist()
+                sampled_paths = [all_paths[i] for i in sampled_indices]
+
+                loaded_pils: List[Image.Image] = []
+                for p in sampled_paths:
+                    try:
+                        im = Image.open(p).convert("RGB")
+                    except Exception:
+                        im = Image.fromarray(np.zeros((256, 256, 3), dtype=np.uint8))
+                    loaded_pils.append(im)
+
+                annotated_pils = self._maybe_annotate_frames_old(
+                    pil_frames_at_original_size=loaded_pils,
+                    sampled_indices=sampled_indices,
+                    extra_info=built,
+                    debug=debug,
+                    debug_dir=debug_dir,
+                    video_tag=f"vid{b_idx:03d}",
+                )
+                processed_frames = self._regularize_images(annotated_pils, **kwargs)["images"]
+
+            elif isinstance(video, (str, BytesIO)) or hasattr(video, "read"):
+                container = av.open(video, "r")
+                video_stream = next(stream for stream in container.streams if stream.type == "video")
+                sample_indices = self._get_video_sample_indices(video_stream, **kwargs)
+                sampled_indices = (sample_indices.tolist() if hasattr(sample_indices, "tolist") else list(sample_indices))
+                target_set = set(sampled_indices)
+
+                decoded_frames_pil: List[Image.Image] = []
+                container.seek(0)
+                for frame_idx, frame in enumerate(container.decode(video_stream)):
+                    if frame_idx in target_set:
+                        decoded_frames_pil.append(frame.to_image())
+
+                built = {}
+                if isinstance(sample_extra, dict):
+                    frames_list = sample_extra.get("frames", None)
+                    if isinstance(frames_list, list) and all(isinstance(p, str) for p in frames_list):
                         try:
-                            im = Image.open(p).convert("RGB")
-                        except Exception:
-                            im = Image.fromarray(np.zeros((256, 256, 3), dtype=np.uint8))
-                        loaded_pils.append(im)
+                            built = self.build_extra_info_for_item({"extra_info": sample_extra, "videos": [frames_list]}, frames_list)
+                        except Exception as e:
+                            print(f"[WARN] build_extra_info_for_item failed: {e}")
+                            built = {}
 
-                    built = self._build_scene_extra_for_video(sample_extra, all_paths) if isinstance(sample_extra, dict) else {}
-                    annotated_pils = self._maybe_annotate_frames_old(
-                        pil_frames_at_original_size=loaded_pils,
-                        sampled_indices=sampled_indices,
-                        extra_info=built,
-                        debug=debug,
-                        debug_dir=debug_dir,
-                        video_tag=f"vid{b_idx:03d}",
-                    )
-                    processed_frames = self._regularize_images(annotated_pils, **kwargs)["images"]
+                annotated_pils = self._maybe_annotate_frames_old(
+                    pil_frames_at_original_size=decoded_frames_pil,
+                    sampled_indices=sampled_indices,
+                    extra_info=built,
+                    debug=debug,
+                    debug_dir=debug_dir,
+                    video_tag=f"vid{b_idx:03d}",
+                )
+                processed_frames = self._regularize_images(annotated_pils, **kwargs)["images"]
 
-                elif isinstance(video, (str, BytesIO)) or hasattr(video, "read"):
-                    container = av.open(video, "r")
-                    video_stream = next(stream for stream in container.streams if stream.type == "video")
-                    sample_indices = self._get_video_sample_indices(video_stream, **kwargs)
-                    sampled_indices = (sample_indices.tolist() if hasattr(sample_indices, "tolist") else list(sample_indices))
-                    target_set = set(sampled_indices)
-
-                    decoded_frames_pil: List[Image.Image] = []
-                    container.seek(0)
-                    for frame_idx, frame in enumerate(container.decode(video_stream)):
-                        if frame_idx in target_set:
-                            decoded_frames_pil.append(frame.to_image())
-
-                    built = {}
-                    if isinstance(sample_extra, dict):
-                        frames_list = sample_extra.get("frames", None)
-                        if isinstance(frames_list, list) and all(isinstance(p, str) for p in frames_list):
-                            built = self._build_scene_extra_for_video(sample_extra, frames_list)
-
-                    annotated_pils = self._maybe_annotate_frames_old(
-                        pil_frames_at_original_size=decoded_frames_pil,
-                        sampled_indices=sampled_indices,
-                        extra_info=built,
-                        debug=debug,
-                        debug_dir=debug_dir,
-                        video_tag=f"vid{b_idx:03d}",
-                    )
-
-                    processed_frames = self._regularize_images(annotated_pils, **kwargs)["images"]
-
-                    duration_in_seconds = 0.0
-                    if video_stream.duration is not None:
-                        duration_in_seconds = float(video_stream.duration * video_stream.time_base)
-                    fps_used = (len(sampled_indices) / duration_in_seconds) if duration_in_seconds > 0 else video_fps_default
-
-                else:
-                    raise TypeError(f"Unsupported video input type at batch index {b_idx}: {type(video)}")
-
+                duration_in_seconds = 0.0
+                if video_stream.duration is not None:
+                    duration_in_seconds = float(video_stream.duration * video_stream.time_base)
+                fps_used = (len(sampled_indices) / duration_in_seconds) if duration_in_seconds > 0 else video_fps_default
             else:
-                processed_frames_list: list = []
-                sampled_indices = None
-                if isinstance(video, list):
-                    video_frames = video
-                    total_frames = len(video_frames)
-                    if total_frames == 0:
-                        results_per_sample.append([])
-                        fps_per_sample.append(video_fps_default)
-                        continue
-                    num_samples = min(total_frames, video_maxlen)
-                    sample_indices = np.linspace(0, total_frames - 1, num_samples, dtype=np.int32)
-                    unique_indices = np.unique(sample_indices)
-                    sampled_frame_paths = [video_frames[i] for i in unique_indices]
-                    sampled_indices = list(map(int, unique_indices.tolist()))
-                    processed_frames_list = self._regularize_images(sampled_frame_paths, **kwargs)["images"]
-                    fps_used = video_fps_default
-
-                elif isinstance(video, (str, BytesIO, BufferedReader)) or hasattr(video, "read"):
-                    container = av.open(video, "r")
-                    video_stream = next(stream for stream in container.streams if stream.type == "video")
-                    sample_indices = self._get_video_sample_indices(video_stream, **kwargs)
-                    sampled_indices = list(map(int, sample_indices.tolist())) if hasattr(sample_indices, "tolist") else list(sample_indices)
-
-                    decoded_frames: list = []
-                    container.seek(0)
-                    for frame_idx, frame in enumerate(container.decode(video_stream)):
-                        if frame_idx in sample_indices:
-                            decoded_frames.append(frame.to_image())
-
-                    processed_frames_list = self._regularize_images(decoded_frames, **kwargs)["images"]
-                    duration_in_seconds = 0.0
-                    if video_stream.duration is not None:
-                        duration_in_seconds = float(video_stream.duration * video_stream.time_base)
-                    fps_used = (len(sample_indices) / duration_in_seconds) if duration_in_seconds > 0 else video_fps_default
-                else:
-                    raise TypeError(f"Unsupported video input type at batch index {b_idx}: {type(video)}")
-
-                if processed_frames_list:
-                    processed_frames_list = self._maybe_annotate_frames_new(
-                        processed_frames=processed_frames_list,
-                        sampled_indices=sampled_indices,
-                        extra_info=sample_extra,
-                        debug=debug,
-                        debug_dir=debug_dir,
-                        video_tag=f"vid{b_idx:03d}",
-                    )
-
-                processed_frames = processed_frames_list
+                raise TypeError(f"Unsupported video input type at batch index {b_idx}: {type(video)}")
 
             if len(processed_frames) % 2 != 0 and len(processed_frames) > 0:
                 processed_frames.append(processed_frames[-1])
@@ -2165,7 +2285,81 @@ class Qwen2VLPlugin(BasePlugin):
 
         return {"videos": results_per_sample, "fps_per_video": fps_per_sample}
 
-    # ========== Parse extra_info (string/JSON5/ast) ==========
+    # ========== Geometry encoder preprocessing ==========
+    def process_and_pad_images(self, geometry_encoder_inputs):
+        if not geometry_encoder_inputs or not geometry_encoder_inputs[0]:
+            raise ValueError("Input list cannot be empty")
+        processed_batches_364 = []
+        processed_batches_420 = []
+
+        to_tensor = TF.ToTensor()
+        extra_type = "dinov3"
+        target_sizes = [364, 420] if extra_type != "vggt" else [364, 364]
+
+        def preprocess_for_target(img: Image.Image, target_size: int):
+            if not isinstance(img, Image.Image):
+                raise TypeError(f"Expected a PIL Image, but got {type(img)}")
+            if img.mode == "RGBA":
+                background = Image.new("RGBA", img.size, (255, 255, 255, 255))
+                img = Image.alpha_composite(background, img)
+            img = img.convert("RGB")
+            width, height = img.size
+            if width >= height:
+                new_width = target_size
+                new_height = round(height * (new_width / width) / 14) * 14
+            else:
+                new_height = target_size
+                new_width = round(width * (new_height / height) / 14) * 14
+            new_width = max(14, new_width); new_height = max(14, new_height)
+            img_resized = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
+            img_tensor = to_tensor(img_resized)
+            h_padding = target_size - img_tensor.shape[1]
+            w_padding = target_size - img_tensor.shape[2]
+            if h_padding < 0 or w_padding < 0:
+                top = max(0, (img_tensor.shape[1] - target_size) // 2)
+                left = max(0, (img_tensor.shape[2] - target_size) // 2)
+                img_tensor = img_tensor[:, top : top + target_size, left : left + target_size]
+                h_padding = 0; w_padding = 0
+            if h_padding > 0 or w_padding > 0:
+                pad_top = h_padding // 2; pad_bottom = h_padding - pad_top
+                pad_left = w_padding // 2; pad_right = w_padding - pad_left
+                img_tensor = torch.nn.functional.pad(
+                    img_tensor, (pad_left, pad_right, pad_top, pad_bottom), mode="constant", value=1.0
+                )
+            return img_tensor
+
+        for image_list in geometry_encoder_inputs:
+            processed_images_364 = []
+            processed_images_420 = []
+            for img in image_list:
+                pil_img = self._safe_to_pil(img)
+                img_364 = preprocess_for_target(pil_img, target_sizes[0])
+                img_420 = preprocess_for_target(pil_img, target_sizes[1])
+                processed_images_364.append(img_364)
+                processed_images_420.append(img_420)
+            images_tensor_364 = torch.stack(processed_images_364)
+            images_tensor_420 = torch.stack(processed_images_420)
+            processed_batches_364.append(images_tensor_364)
+            processed_batches_420.append(images_tensor_420)
+
+        return processed_batches_364, processed_batches_420
+
+    # ========== Misc wrappers ==========
+    def _normalize_extra_info(self, extra_info: Optional[Union[Dict[str, Any], List[Optional[Dict[str, Any]]]]], batch_size: int):
+        if extra_info is None:
+            return [None] * batch_size
+        if isinstance(extra_info, list) and len(extra_info) == 0:
+            return [None] * batch_size
+        if isinstance(extra_info, dict):
+            if batch_size != 1:
+                raise ValueError(f"extra_info dict can only be broadcast when batch_size == 1 (got {batch_size}).")
+            return [extra_info] * batch_size
+        if isinstance(extra_info, list):
+            if len(extra_info) != batch_size:
+                raise ValueError(f"extra_info list length {len(extra_info)} != batch size {batch_size}")
+            return extra_info
+        raise TypeError(f"extra_info must be dict or list[dict], got {type(extra_info)}")
+
     def parse_extra(self, i):
         if isinstance(i, bytes):
             i = i.decode('utf-8', errors='strict')
@@ -2185,8 +2379,6 @@ class Qwen2VLPlugin(BasePlugin):
         except Exception as e:
             raise ValueError(f"Failed to parse extra_info: {e}\nRaw content: {repr(i)}")
 
-    # ========== Build multimodal inputs ==========
-    @override
     def _get_mm_inputs(
         self,
         images: list["ImageInput"],
@@ -2216,7 +2408,6 @@ class Qwen2VLPlugin(BasePlugin):
 
         if len(videos) != 0:
             self.use_geometry_encoder = True
-
             video_dict = self._regularize_videos(
                 videos,
                 image_max_pixels=getattr(processor, "video_max_pixels", 256 * 256),
@@ -2227,7 +2418,6 @@ class Qwen2VLPlugin(BasePlugin):
             )
             if self.use_geometry_encoder and "geometry_encoder_inputs" in video_dict:
                 mm_inputs["geometry_encoder_inputs"] = video_dict["geometry_encoder_inputs"]
-
             mm_inputs.update(image_processor(images=None, videos=video_dict["videos"], return_tensors="pt"))
             temporal_patch_size: int = getattr(image_processor, "temporal_patch_size", 2)
             if "second_per_grid_ts" in getattr(processor, "model_input_names", []):
@@ -2237,8 +2427,6 @@ class Qwen2VLPlugin(BasePlugin):
 
         return mm_inputs
 
-    # ========== Expand multimodal tokens in text messages ==========
-    @override
     def process_messages(
         self,
         messages: list[dict[str, str]],
@@ -2377,7 +2565,7 @@ class Qwen2OmniPlugin(Qwen2VLPlugin):
 
             if (
                 use_audio_in_video and len(audios) and len(videos)
-            ):
+            ):  # if use the audio of video # deal video token and audio token togather
                 if len(videos) != len(audios):
                     raise ValueError(
                         f"Number of videos ({len(videos)}) must match number of audios ({len(audios)}) when using audio in video."
@@ -2402,9 +2590,9 @@ class Qwen2OmniPlugin(Qwen2VLPlugin):
                         )
                         .flatten()
                         * mm_inputs["video_second_per_grid"][num_video_tokens]
-                        * 25
+                        * 25  # FIXME hardcode of position_id_per_seconds=25
                     ).long()
-                    t_ntoken_per_chunk = 50
+                    t_ntoken_per_chunk = 50  # FIXME hardcode: [25 * 2]
                     video_chunk_indices = processor.get_chunked_index(video_t_index, t_ntoken_per_chunk)
                     audio_chunk_indices = processor.get_chunked_index(audio_t_index, t_ntoken_per_chunk)
                     placeholder_string = ""
@@ -2470,7 +2658,7 @@ class VideoLlavaPlugin(BasePlugin):
             if "pixel_values_videos" in mm_inputs:
                 one_video = to_numpy_array(mm_inputs["pixel_values_videos"][0])
                 height, width = get_image_size(one_video[0])
-                num_frames = one_video.shape[0]
+                num_frames = one_video.shape[0]  # frame dim is always after batch dim
 
             if "pixel_values_images" in mm_inputs or "pixel_values_videos" in mm_inputs:
                 image_seqlen = (height // processor.patch_size) * (
