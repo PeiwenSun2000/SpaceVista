@@ -1,6 +1,6 @@
 {
     "SpaceVista": {
-    "file_name": "your_path/meta.json",
+    "file_name": "your_path/meta_flatten.json",
     "formatting": "sharegpt",
     "columns": {
       "messages": "messages",
