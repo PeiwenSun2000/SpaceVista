@@ -94,6 +94,13 @@ Before everything, a sincere apology for some part of our code is still hard-cod
 
 ## SFT training:
 
+Change the form of the dataset first. Note, this might be simplified in the future
+
+```
+cd dataset
+python flatten.py -i your_path/meta.json -o your_path/meta_flatten.json
+```
+
 To generate audio from a text prompt using our pretrained model:
 
 1. Download the pretrained [Qwen2.5VL-7B-instruct](https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct) model and [DINOv3](https://huggingface.co/facebook/dinov3-vitb16-pretrain-lvd1689m).
@@ -103,6 +110,7 @@ To generate audio from a text prompt using our pretrained model:
 ```
 # source the same environment
 cd sft
+
 # (Optional checking) `training_load = True` in `../dependency/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py`
 
 sed -i 's/self\.training_load = False/self\.training_load = True/g' \
