@@ -110,8 +110,11 @@ The Jupyter outputs are the preview of video frames with annotation and QA.
 # Reference
 
 ```
-
-{}
-
+@article{sun2025spacevista,
+  title={SpaceVista: All-Scale Visual Spatial Reasoning from mm to km}, 
+  author={Sun, Peiwen and Lang, Shiqiang and Wu, Dongming and Ding, Yi and Feng, Kaituo and Liu, Huadai and Ye, Zhen and Liu, Rui and Liu, Yun-Hui and Wang, Jianan and Yue, Xiangyu},
+  journal={arXiv preprint arXiv:2510.09606},
+  year={2025}
+}
 ```
 
