@@ -1,20 +1,16 @@
 # <img src=".asset/logo_v2.png" width="10%"> **SpaceVista**: All-Scale Visual Spatial Reasoning from $mm$ to $km$
 
+<p align="center">
+          &nbsp&nbsp🤗 <a href="https://huggingface.co/datasets/SpaceVista/Data-Preview">Hugging Face</a>&nbsp&nbsp | &nbsp&nbsp 📑 <a href="https://arxiv.org/abs/2510.09606">Paper</a> &nbsp&nbsp | &nbsp&nbsp 📑 <a href="https://github.com/PeiwenSun2000/SpaceVista">Github</a> &nbsp&nbsp
+<br>
+🖥️ <a href="https://peiwensun2000.github.io/mm2km/">Home Page</a>&nbsp&nbsp
+</p>
+
 Peiwen Sun $^{\*}$, Shiqiang Lang $^{\*}$, Dongming Wu, Yi Ding, Kaituo Feng, Huadai Liu, Zhen Ye, Rui Liu, Yun-Hui Liu, Jianan Wang, Xiangyu Yue
 
 Keywords: ![Multi-Modal](https://img.shields.io/badge/Task-Multi--Modal-red) ![All-Scale](https://img.shields.io/badge/Task-All--Scale-red) ![Spatial Reasoning](https://img.shields.io/badge/Task-Spatial--Reasoning-red) 
 
 The official repo for SpaceVista: All-Scale Visual Spatial Reasoning from $mm$ to $km$.
-
-SpaceVista Homepage:  <a href='https://peiwensun2000.github.io/mm2km/'><img src='https://img.shields.io/badge/Home-Page-blue'></a>
-
-<div style='display:flex; gap: 0.25rem; '>
-Community Contribution: 
-<!-- <a href='http://143.89.224.6:2436/'><img src='https://img.shields.io/badge/Gradio-Demo_nl-blue'></a><a href='http://143.89.224.6:2437/'><img src='https://img.shields.io/badge/Gradio-Demo_attr-blue'></a> -->
-<a href='https://huggingface.co/datasets/SpaceVista/Data-Preview'><img src='https://img.shields.io/badge/Data Preview-Huggingface-yellow'></a>
-<a href='https://github.com/PeiwenSun2000/SpaceVista'><img src='https://img.shields.io/badge/Code-Github-blue'></a>
-<a href='https://arxiv.org/abs/2510.09606'><img src='https://img.shields.io/badge/Paper-PDF-red'></a>
-</div>
 
 ## Outlines
 - [💥 News 💥](https://github.com/PeiwenSun2000/SpaceVista/tree/main?tab=readme-ov-file#-news-)
