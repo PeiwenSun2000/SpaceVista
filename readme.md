@@ -29,7 +29,7 @@ The official repo for SpaceVista: All-Scale Visual Spatial Reasoning from $mm$ t
 ## Overall Structure
 
 *  Dataset: [Preview 100K subset of SpaceVista-1M](https://huggingface.co/datasets/SpaceVista/Data-Preview) <a href='https://huggingface.co/datasets/SpaceVista/Data-Preview'><img src='https://img.shields.io/badge/Dataset-Huggingface-yellow'></a>
-*  SFT training: [SFT code for SpaceVista](https://github.com/PeiwenSun2000/Both-Ears-Wide-Open/tree/main/models) <a href='https://github.com/PeiwenSun2000/SpaceVista'><img src='https://img.shields.io/badge/Code-Github-blue'></a>.
+*  SFT training: [SFT code for SpaceVista](https://github.com/PeiwenSun2000/SpaceVista/tree/main/sft) <a href='https://github.com/PeiwenSun2000/SpaceVista'><img src='https://img.shields.io/badge/Code-Github-blue'></a>.
 
 - [ ]  Release the full SpaceVista-1M dataset
 - [ ]  Release the GRPO codebase and checkpoints
