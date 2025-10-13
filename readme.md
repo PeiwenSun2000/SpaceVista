@@ -1,5 +1,7 @@
 # <img src=".asset/logo_v2.png" width="10%"> **SpaceVista**: All-Scale Visual Spatial Reasoning from $mm$ to $km$
 
+Peiwen Sun $^{*}$, Shiqiang Lang $^{*}$, Dongming Wu, Yi Ding, Kaituo Feng, Huadai Liu, Zhen Ye, Rui Liu, Yun-Hui Liu, Jianan Wang, Xiangyu Yue
+
 Keywords: ![Multi-Modal](https://img.shields.io/badge/Task-Multi--Modal-red) ![Text-to-Audio](https://img.shields.io/badge/Task-Text--to--Audio-red) ![Spatial Audio](https://img.shields.io/badge/Task-Spatial--Audio-red) 
 
 The official repo for SpaceVista: All-Scale Visual Spatial Reasoning from $mm$ to $km$.
