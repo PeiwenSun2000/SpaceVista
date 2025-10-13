@@ -11,7 +11,7 @@ Community Contribution:
 <!-- <a href='http://143.89.224.6:2436/'><img src='https://img.shields.io/badge/Gradio-Demo_nl-blue'></a><a href='http://143.89.224.6:2437/'><img src='https://img.shields.io/badge/Gradio-Demo_attr-blue'></a> -->
 <a href='https://huggingface.co/datasets/SpaceVista/Data-Preview'><img src='https://img.shields.io/badge/Data Preview-Huggingface-yellow'></a>
 <a href='https://github.com/PeiwenSun2000/SpaceVista'><img src='https://img.shields.io/badge/Code-Github-blue'></a>
-<a href='https://arxiv.org/abs/2410.10676'><img src='https://img.shields.io/badge/Paper-PDF-red'></a>
+<a href='https://arxiv.org/abs/2510.09606'><img src='https://img.shields.io/badge/Paper-PDF-red'></a>
 </div>
 
 ## Outlines
@@ -28,7 +28,7 @@ Community Contribution:
 
 [2025.10.10] Our preview 100K subset of SpaceVista-1M is now available at <a href='https://huggingface.co/datasets/SpaceVista/Data-Preview'><img src='https://img.shields.io/badge/Dataset-Huggingface-yellow'></a>.
 
-[2025.10.10] Our initial paper is now accessible at <a href='https://arxiv.org/abs/2410.10676'><img src='https://img.shields.io/badge/Paper-PDF-red'></a>.
+[2025.10.10] Our initial paper is now accessible at <a href='https://arxiv.org/abs/2510.09606'><img src='https://img.shields.io/badge/Paper-PDF-red'></a>.
 
 ## Overall Structure
 
@@ -225,10 +225,10 @@ Required: `--model_path` (checkpoint or folder) and `--dataset` (one of: vsibenc
 If you find this repo useful, please cite our papers:
 
 ```
-@article{sun2024both,
-  title={...},
-  author={Sun, Peiwen ...},
-  journal={...},
-  year={2024}
+@article{sun2025spacevista,
+  title={SpaceVista: All-Scale Visual Spatial Reasoning from mm to km}, 
+  author={Sun, Peiwen and Lang, Shiqiang and Wu, Dongming and Ding, Yi and Feng, Kaituo and Liu, Huadai and Ye, Zhen and Liu, Rui and Liu, Yun-Hui and Wang, Jianan and Yue, Xiangyu},
+  journal={arXiv preprint arXiv:2510.09606},
+  year={2025}
 }
 ```
