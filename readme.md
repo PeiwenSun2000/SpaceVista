@@ -1,9 +1,7 @@
 # <img src=".asset/logo_v2.png" width="10%"> **SpaceVista**: All-Scale Visual Spatial Reasoning from $mm$ to $km$
 
 <p align="center">
-          &nbsp&nbsp🤗 <a href="https://huggingface.co/datasets/SpaceVista/Data-Preview">Hugging Face</a>&nbsp&nbsp | &nbsp&nbsp 📑 <a href="https://arxiv.org/abs/2510.09606">Paper</a> &nbsp&nbsp | &nbsp&nbsp 📑 <a href="https://github.com/PeiwenSun2000/SpaceVista">Github</a> &nbsp&nbsp
-<br>
-🖥️ <a href="https://peiwensun2000.github.io/mm2km/">Home Page</a>&nbsp&nbsp
+          &nbsp&nbsp🤗 <a href="https://huggingface.co/datasets/SpaceVista/Data-Preview">Hugging Face</a>&nbsp&nbsp | &nbsp&nbsp 📑 <a href="https://arxiv.org/abs/2510.09606">Paper</a> &nbsp&nbsp | &nbsp&nbsp ⚙️ <a href="https://github.com/PeiwenSun2000/SpaceVista">Github</a> &nbsp&nbsp | 🖥️ <a href="https://peiwensun2000.github.io/mm2km/">Home Page</a>&nbsp&nbsp
 </p>
 
 Peiwen Sun $^{\*}$, Shiqiang Lang $^{\*}$, Dongming Wu, Yi Ding, Kaituo Feng, Huadai Liu, Zhen Ye, Rui Liu, Yun-Hui Liu, Jianan Wang, Xiangyu Yue
