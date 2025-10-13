@@ -17,7 +17,7 @@ By the way, we would **not** recommend you train your model with your own datalo
 
 # What is **All-Scale Spatial Reasoning**
 
-<img src=".asset/teaser.jpg" width="50%">
+<img src="../.asset/teaser.jpg" width="50%">
 
 Spatial reasoning is the ability to **perceive, interpret, and act** across spatial scales, from millimeter-sized components to distant aerial scenes. All-scale spatial reasoning is fundamental to next-generation intelligent systems and supports diverse applications: mm sensing for advanced manufacturing, cm and m perception for embodied agents, 10m operation for autonomous driving, and 100m for drone based sensing.
 Despite progress, existing work shows clear limitations in both model design and dataset coverage. Current scene perception research mostly targets indoor scenes, narrow object classes, and limited spatial ranges, and lacks training paradigms engineered for end-to-end, cross-scale reasoning. SpaceVista addresses this gap by presenting the **first systematic solution** across both data and model dimensions to enable robust, full scene spatial reasoning.
@@ -25,7 +25,7 @@ Despite progress, existing work shows clear limitations in both model design and
 # Data Construction
 
 
-<img src=".asset/dataset.jpg" width="50%">
+<img src="../.asset/dataset.jpg" width="50%">
 
 The limited data and performance constraints in existing models necessitate the creation of a dataset with all-scale spatial context. We propose **SpaceVista-1M**, a **diverse, real-world, all-scale** reasoning dataset, as the **first** to the best of our knowledge. SpaceVista-1M primarily comprises diverse spatial reasoning question–answer pairs, with rich semantic (category, rationale), 2D (mask, box, point), and 3D (depth, camera parameters, point cloud) annotations, obtained either natively or through processing. The construction pipeline in the above figure follows the step-by-step procedure of preparing, transforming, and generating to obtain an all-scale dataset by integrating specialized models.
 
@@ -120,9 +120,9 @@ python save_visualization.py --json meta.json
 
 The jupyter outputs are the preview of video frames with annotation and QA.
 
-<img src=".asset/case1.png" width="30%"><img src=".asset/case4.png" width="25%">
+<img src="../.asset/case1.png" width="30%"><img src="../.asset/case4.png" width="25%">
 
-<img src=".asset/case2.png" width="33%"><img src=".asset/case3.png" width="34%">
+<img src="../.asset/case2.png" width="33%"><img src="../.asset/case3.png" width="34%">
 
 
 # Reference
