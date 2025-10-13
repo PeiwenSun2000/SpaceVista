@@ -15,13 +15,11 @@ Community Contribution:
 </div>
 
 ## Outlines
-- [💥 News 💥]()
-- [👀 About SpaceVista]()
-- [📊 SpaceVista-1M Dataset]()
-- [🏆 Usage]()
-- [📝 Evaluation]()
-- [📜 License]()
-- [🤝 Contributors]()
+- [💥 News 💥](https://github.com/PeiwenSun2000/SpaceVista/tree/main?tab=readme-ov-file#-news-)
+- [👀 About SpaceVista](https://github.com/PeiwenSun2000/SpaceVista/tree/main?tab=readme-ov-file#spacevista)
+- [📊 SpaceVista-1M Dataset](https://github.com/PeiwenSun2000/SpaceVista/tree/main/dataset)
+- [🏆 Usage](https://github.com/PeiwenSun2000/SpaceVista/tree/main?tab=readme-ov-file#dataset-usages)
+- [📝 Evaluation](https://github.com/PeiwenSun2000/SpaceVista/tree/main?tab=readme-ov-file#evaluation)
 
 ## 💥 News 💥
 [2025.10.10] Our preview SFT code base is released for preview. <a href='https://github.com/PeiwenSun2000/SpaceVista'><img src='https://img.shields.io/badge/Code-Github-blue'></a>.
