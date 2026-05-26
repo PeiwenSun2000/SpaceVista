@@ -4,6 +4,7 @@
           &nbsp&nbsp🤗 <a href="https://huggingface.co/datasets/SpaceVista/Data-Preview">Hugging Face</a>&nbsp&nbsp | &nbsp&nbsp 📑 <a href="https://arxiv.org/abs/2510.09606">Paper</a> &nbsp&nbsp | &nbsp&nbsp ⚙️ <a href="https://github.com/PeiwenSun2000/SpaceVista">Github</a> &nbsp&nbsp | 🖥️ <a href="https://peiwensun2000.github.io/mm2km/">Home Page</a>&nbsp&nbsp
 </p>
 
+
 Peiwen Sun $^{\*}$, Shiqiang Lang $^{\*}$, Dongming Wu, Yi Ding, Kaituo Feng, Huadai Liu, Zhen Ye, Rui Liu, Yun-Hui Liu, Jianan Wang, Xiangyu Yue
 
 Keywords: ![Multi-Modal](https://img.shields.io/badge/Task-Multi--Modal-red) ![All-Scale](https://img.shields.io/badge/Task-All--Scale-red) ![Spatial Reasoning](https://img.shields.io/badge/Task-Spatial--Reasoning-red) 
@@ -18,6 +19,14 @@ The official repo for SpaceVista: All-Scale Visual Spatial Reasoning from $mm$ t
 - [📝 Evaluation](https://github.com/PeiwenSun2000/SpaceVista/tree/main?tab=readme-ov-file#evaluation)
 
 ## 💥 News 💥
+[2026.5.28] 📦 Our SpaceVista-1M is released at <a href='https://huggingface.co/datasets/SpaceVista/SpaceVista-Full'><img src='https://img.shields.io/badge/SpaceVista--1M-HuggingFace-yellow'></a>.
+
+[2026.5.28] 🎯 Our SpaceVista-Bench is released at <a href='https://huggingface.co/datasets/SpaceVista/SpaceVista-Bench'><img src='https://img.shields.io/badge/SpaceVista--Bench-HuggingFace-yellow'></a>.
+
+[2026.5.10] 🏆 The Guinness World Records data used in our paper is released at <a href='https://huggingface.co/datasets/SpaceVista/Guinness_World_Records'><img src='https://img.shields.io/badge/Guinness_World_Records-HuggingFace-yellow'></a>.
+
+[2026.5.2] 🎉 Our paper is accepted by ICML 2026. See you in Seoul.
+
 [2025.10.10] Our preview SFT code base is released for preview. <a href='https://github.com/PeiwenSun2000/SpaceVista'><img src='https://img.shields.io/badge/Code-Github-blue'></a>.
 
 [2025.10.10] Our preview 100K subset of SpaceVista-1M is now available at <a href='https://huggingface.co/datasets/SpaceVista/Data-Preview'><img src='https://img.shields.io/badge/Dataset-Huggingface-yellow'></a>.
@@ -26,12 +35,10 @@ The official repo for SpaceVista: All-Scale Visual Spatial Reasoning from $mm$ t
 
 ## Overall Structure
 
-*  Dataset: [Preview 100K subset of SpaceVista-1M](https://huggingface.co/datasets/SpaceVista/Data-Preview) <a href='https://huggingface.co/datasets/SpaceVista/Data-Preview'><img src='https://img.shields.io/badge/Dataset-Huggingface-yellow'></a>
+*  Training Dataset: [SpaceVista-1M](https://huggingface.co/datasets/SpaceVista/SpaceVista-Full) <a href='https://huggingface.co/datasets/SpaceVista/SpaceVista-Full'><img src='https://img.shields.io/badge/SpaceVista--1M-HuggingFace-yellow'></a>.
+*  Evaluation Dataset: [SpaceVista-Bench](https://huggingface.co/datasets/SpaceVista/SpaceVista-Bench) <a href='https://huggingface.co/datasets/SpaceVista/SpaceVista-Bench'><img src='https://img.shields.io/badge/SpaceVista--Bench-HuggingFace-yellow'></a>.
 *  SFT training: [SFT code for SpaceVista](https://github.com/PeiwenSun2000/SpaceVista/tree/main/sft) <a href='https://github.com/PeiwenSun2000/SpaceVista'><img src='https://img.shields.io/badge/Code-Github-blue'></a>.
-
-- [ ]  Release the full SpaceVista-1M dataset
-- [ ]  Release the GRPO codebase and checkpoints
-- [ ]  Release the SpaceVista-Bench benchmark
+*  Evaluating: [Evaluation code for SpaceVista](https://github.com/PeiwenSun2000/SpaceVista/tree/main/eval) <a href='https://github.com/PeiwenSun2000/SpaceVista'><img src='https://img.shields.io/badge/Code-Github-blue'></a>.
 
 ## SpaceVista
 
@@ -42,177 +49,61 @@ The official repo for SpaceVista: All-Scale Visual Spatial Reasoning from $mm$ t
 Spatial reasoning is the ability to perceive, interpret, and act across spatial scales, from millimeter-sized components to distant aerial scenes. All-scale spatial reasoning is fundamental to next-generation intelligent systems and supports diverse applications: mm sensing for advanced manufacturing, cm and m perception for embodied agents, 10m operation for autonomous driving, and 100m for drone-based sensing.
 Despite progress, existing work shows clear limitations in both model design and dataset coverage. Current scene perception research mostly targets indoor scenes, narrow object classes, and limited spatial ranges, and lacks training paradigms engineered for end to end, cross scale reasoning. SpaceVista addresses this gap by presenting the first systematic optimization across both data and model dimensions to enable robust, full-scene spatial reasoning.
 
-# Requirements
+# Training Data
 
-Development for the repo is done in Python 3.10.18
+SpaceVista-1M: Available at <a href='https://huggingface.co/datasets/SpaceVista/SpaceVista-Full'><img src='https://img.shields.io/badge/SpaceVista--1M-HuggingFace-yellow'></a>.
 
-This code base is adapted from [LLaMA-factory](https://github.com/hiyouga/LLaMA-Factory), [R1-V](https://github.com/StarsfieldAI/R1-V), [VG-LLM](https://github.com/LaVi-Lab/VG-LLM) and [Easy-R1](https://github.com/hiyouga/EasyR1). Sincere thanks to the engineers for their great work.
-
-We use the light venv package for the Python environment. (Do not use other tools like conda at the same time)
-```
-git clone 
-cd SpaceVista
-
-# pip install uv
-
-uv venv -p python3.10.18
-source .venv/bin/activate
-UV_HTTP_TIMEOUT=600 uv pip install -r requirements_sft.txt --no-deps -i http://mirrors.aliyun.com/pypi/simple/
-
-# For flash_attn
-MAX_JOBS=64 uv pip install flash_attn==2.7.1.post4 --no-build-isolation -i http://mirrors.aliyun.com/pypi/simple/
-
-ln -s "$(pwd)/dependency/transformers" ".venv/lib/python3.10/site-packages/transformers"
+```bash
+# Download SpaceVista-1M
+huggingface-cli download SpaceVista/SpaceVista-Full --repo-type dataset --local-dir ./SpaceVista-1M
 ```
 
-# Dataset Usages
+# Evaluation Data
 
-Please refer to the [dataset part](https://github.com/PeiwenSun2000/SpaceVista/tree/main/dataset).
+SpaceVista-Bench: Available at <a href='https://huggingface.co/datasets/SpaceVista/SpaceVista-Bench'><img src='https://img.shields.io/badge/SpaceVista--Bench-HuggingFace-yellow'></a>.
 
-We provide the dataset in ShareGPT format, along with up to 32 extracted frames.
-
-You may download the original MP4 video from the source.
-
-# Model Gallery
-
-The model will be released soon after the sensitivity check.
-
-| Model           | 🤗 HF      | Detail                                            |
-|-----------------|----------|---------------------------------------------------|
-| To Be Updated    | To Be  Updated               | To Be  Updated
-
-# Usage
-
-Before everything, a sincere apology for some part of our code is still hard-coded. We are actively seeking for easy usage of this repo.
-
-
-## SFT training:
-
-Change the form of the dataset first. Note, this might be simplified in the future
-
-```
-cd dataset
-python flatten.py -i your_path/meta.json -o your_path/meta_flatten.json
-```
-
-To generate audio from a text prompt using our pretrained model:
-
-1. Download the pretrained [Qwen2.5VL-7B-instruct](https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct) model and [DINOv3](https://huggingface.co/facebook/dinov3-vitb16-pretrain-lvd1689m).
-2. (Optional) Download the pretrained [VGGT-1B](https://huggingface.co/facebook/VGGT-1B) model.
-3. Change the `dinov3/dinov3_vitl16_pretrain_lvd1689m-8aa4cbdd.pth` and `vggt/ckpt` path in `../dependency/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py` to your path.
-
-```
-# source the same environment
-cd sft
-
-# (Optional checking) `training_load = True` in `../dependency/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py`
-
-sed -i 's/self\.training_load = False/self\.training_load = True/g' \
-"../.venv/lib/python3.10/site-packages/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py"
-
-llamafactory-cli train examples/train_full/qwen2_5_vl_spatial_full_sft_video_dinov3.yaml
-```
-
-
-## SFT training w/. Expert:
-
-
-Preliminary: If you train the model with an additional adapter for DINOv3, you need to use a roughly trained SFT model as the pre-trained base. Otherwise, PEFT will only save the LoRA weights.
-1. Training each expert on the SFT model
-      - (Optional checking) `training_load = False` in `../dependency/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py`
-```
-# source the same environment
-cd sft
-
-sed -i 's/self\.training_load = True/self\.training_load = False/g' \
-"../.venv/lib/python3.10/site-packages/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py"
-
-llamafactory-cli train examples/train_lora/qwen2_5vl_lora_sft_spacevista_cross_outdoor.yaml
-llamafactory-cli train examples/train_lora/qwen2_5vl_lora_sft_spacevista_cross_table.yaml
-llamafactory-cli train examples/train_lora/qwen2_5vl_lora_sft_spacevista_cross_tabletop.yaml
-llamafactory-cli train examples/train_lora/qwen2_5vl_lora_sft_spacevista_cross_indoor.yaml
-```
-
-2. Change the path of each expert in `sft/src/llamafactory/model/adapter.py` to the checkpoint saved on the above step
-      - (Optional checking) `training_load = False` in `../dependency/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py`
-
-```
-# source the same environment
-cd sft
-
-llamafactory-cli train examples/train_lora/qwen2_5_vl_spatial_full_sft_video_expert.yaml
-```
-
-## RL w/. GRPO
-
-To be updated
-
-
-```
-# to be updated
+```bash
+# Download SpaceVista-Bench
+huggingface-cli download SpaceVista/SpaceVista-Bench --repo-type dataset --local-dir ./SpaceVista-Bench
 ```
 
 # Evaluation
 
-1. Please be sure to use the venv provided.
-2. Change the benchmark path to your path
-```
-DATASET_CONFIGS = {
-        "vsibench": {
-            "dataset_path": "./vsi-bench/test-00000-of-00001.parquet",
-            "video_dir": "./vsi-bench",
-            "evaluation_fn": ...,
-            "metric_fn": ...,
-        },
-        "mmsibench": {
-            "dataset_path": "./MMSI_Bench.parquet",
-            "video_dir": "", # Not needed as images are in the parquet file
-            "evaluation_fn": ...,
-            "metric_fn": ...,
-        },
-        "spacevista": {
-            "dataset_path": "./unified_qa.jsonl", # will be released soon.
-            "video_dir": "./frames/all", # will be released soon.
-            "evaluation_fn": ...,
-            "metric_fn": ...,
-        },
-        "sparbench": {
-            "dataset_path": ["./SPAR-Bench/data/test-00000-of-00004.parquet","./SPAR-Bench/data/test-00001-of-00004.parquet",\
-                "./SPAR-Bench/data/test-00002-of-00004.parquet","./SPAR-Bench/data/test-00003-of-00004.parquet"],
-            "video_dir": "",
-            "evaluation_fn": ...,
-            "metric_fn": ...,
-        },
-        "stibench": {
-            "dataset_path": "./sti-bench/qa.parquet",
-            "video_dir": "", # Not needed as images are in the parquet file
-            "evaluation_fn": ...,
-            "metric_fn": ...,
-        }
-    }
+We provide API-based evaluation scripts that work with any OpenAI-compatible API (OpenRouter, OpenAI, POE, etc.). No GPU required.
 
-```
-
-3. Use this script to evaluate a model on a chosen dataset. Example: 
-
-```
+```bash
 cd eval
-
-sed -i 's/self\.training_load = True/self\.training_load = False/g' \
-"../.venv/lib/python3.10/site-packages/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py"
-
-# source the same environment
-
-# vsibench
-python eval_multi_model_mp.py --model_path /path/to/model --dataset vsibench --output_dir ./eval_results --gpu_ids 0,1 --num_processes 4 --num_frames 32 --batch_size 1
-
-# spacevista
-python eval_multi_model_mp.py --model_path /path/to/model --dataset spacevista --output_dir ./eval_results --gpu_ids 0,1 --num_processes 4 --num_frames 32 --batch_size 1
-
+pip install openai pillow numpy tqdm pandas
+export API_KEY="your-api-key-here"
 ```
 
-Required: `--model_path` (checkpoint or folder) and `--dataset` (one of: vsibench, mmsibench, spacevista, sparbench, stibench). Optional: `--output_dir` (results dir, default ./eval_results), `--gpu_ids` (comma-separated GPU IDs), `--num_processes` (parallel workers), `--num_frames` (frames per video), `--batch_size` (inference batch size), `--debug` (enable quick run), and `--debug_size` (samples used when debug is on).
+For APIs that support **frame (image) input**:
 
+```bash
+python evaluate_api.py --model qwen/qwen2.5-vl-72b-instruct
+```
+
+For APIs that support **video input** (requires `ffmpeg`):
+
+```bash
+python evaluate_api_video.py --model qwen/qwen2.5-vl-72b-instruct
+```
+
+To use a different API provider, override `--base_url`:
+
+```bash
+# OpenAI
+python evaluate_api.py --model gpt-4o --base_url https://api.openai.com/v1
+
+# POE
+python evaluate_api.py --model gpt-4o --base_url https://api.poe.com/v1
+```
+
+See the [eval/README.md](eval/README.md) for full argument reference, resume support, and output format.
+
+# Usage
+
+In case you want to train the Qwen2.5-VL-7B model with SpaceVista, please refer to the [sft](https://github.com/PeiwenSun2000/SpaceVista/tree/main/sft) folder for detailed instructions.
 
 # Reference
 

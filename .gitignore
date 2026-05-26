@@ -2,19 +2,6 @@
 .DS_Store
 Thumbs.db
 
-# Node / JavaScript
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-dist/
-build/
-coverage/
-
 # Python
 __pycache__/
 *.py[cod]
@@ -26,71 +13,22 @@ venv/
 .env.*
 .pytest_cache/
 .mypy_cache/
-coverage.xml
-htmlcov/
 
-# Java
-target/
-*.class
-*.jar
-*.war
-*.ear
-*.iml
-.gradle/
-build/
-
-# Go
-bin/
-vendor/
-*.test
-coverage.out
-
-# Ruby
-.bundle/
-vendor/bundle/
-log/
-tmp/
-
-# PHP / Composer
-vendor/
-composer.lock
-
-# Rust
-target/
-Cargo.lock
-
-# .NET
-bin/
-obj/
-*.user
-*.suo
-*.vs/
-
-# General build/IDE
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-*.tmp
+
+# Eval results (internal outputs, not for distribution)
+eval/eval_results*/
+
+# Logs
 *.log
 logs/
-tmp/
-temp/
 
-# Images/large files generated
-*.pid
-*.seed
-*.csv
-*.tsv
-*.sqlite
-*.db
-
-# Mac archives
+# Archives
 *.zip
 *.tar
 *.gz
 *.7z
-
-# Misc
-coverage/
-cache/
